@@ -141,6 +141,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
       <button id="resume" class="btn primary">Resume</button>
       <button id="quit" class="btn">Main menu</button>
     </div>
+    <button id="soundBtn" class="btn" aria-pressed="true">Sound: on</button>
   </div>
 </div>
 
@@ -265,7 +266,8 @@ function onNet(s, m, timeout){
     if (m.R) s.roster = new Map(m.R.map(r => [r.id, r]));
     s.counts = Int32Array.from(m.C); s.time = m.tm; s.Y = m.Y; s.lastSnap = snap;
     s.phase = m.ph;
-    if (m.P.length || m.E.length) s.queue.push({t:m.t, P:m.P, E:m.E});
+    const E = m.E.concat(netShots(s, m));
+    if (m.P.length || E.length) s.queue.push({t:m.t, P:m.P, E});
     return;
   }
   if (m.type === 'error'){ setStatus(m.text, true); }
@@ -279,22 +281,69 @@ function processNetQueue(s, rt){
   }
 }
 
+/* ---------- sound ---------- */
+const SFX_VOL = {'shot-splat':0.45, 'shot-roller':0.4, 'shot-bomber':0.5, 'shot-liner':0.45, 'shot-sprayer':0.35, splash:0.45, hit:0.6, splatted:0.8, kill:0.6, levelup:0.5, end:0.45};
+const audio = {ctx:null, out:null, bufs:{}, last:{}, voices:0, muted:false};
+try { audio.muted = localStorage.getItem('splatter-muted') === '1'; } catch(e) {}
+function unlockAudio(){
+  if (audio.ctx){ if (audio.ctx.state === 'suspended') audio.ctx.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+  audio.ctx = new AC(); audio.out = audio.ctx.createGain(); audio.out.gain.value = audio.muted ? 0 : 1; audio.out.connect(audio.ctx.destination);
+  for (const n of Object.keys(SFX_VOL)) fetch('/sounds/' + n + '.mp3').then(r => r.arrayBuffer()).then(b => audio.ctx.decodeAudioData(b)).then(buf => { audio.bufs[n] = buf; }).catch(() => {});
+}
+for (const ev of ['pointerdown','keydown','touchend']) window.addEventListener(ev, unlockAudio, {passive:true});
+function setMuted(m){
+  audio.muted = m; if (audio.out) audio.out.gain.value = m ? 0 : 1; try { localStorage.setItem('splatter-muted', m ? '1' : '0'); } catch(e) {}
+  $('soundBtn').textContent = 'Sound: ' + (m ? 'off' : 'on'); $('soundBtn').setAttribute('aria-pressed', String(!m));
+}
+// x/y place the sound in the world: quieter with distance, panned left/right; mine plays louder and is never throttled
+function sfx(name, x, y, mine){
+  const ac = audio.ctx, buf = audio.bufs[name];
+  if (!ac || !buf || audio.muted || ac.state !== 'running' || !session || session.kind === 'demo') return;
+  let vol = SFX_VOL[name], pan = 0;
+  if (x !== undefined && !mine){
+    const dx = x - cam.x, dy = y - cam.y;
+    vol *= 0.7*clamp(1 - (Math.hypot(dx, dy) - 250)/1000, 0, 1); if (vol < 0.02) return;
+    pan = clamp(dx/900, -0.7, 0.7);
+  }
+  const now = ac.currentTime;
+  if (!mine && (now - (audio.last[name] || 0) < 0.04 || audio.voices >= 12)) return;
+  audio.last[name] = now;
+  const src = ac.createBufferSource(), g = ac.createGain();
+  src.buffer = buf; src.playbackRate.value = rand(0.93, 1.07); g.gain.value = vol; src.connect(g);
+  if (ac.createStereoPanner){ const p = ac.createStereoPanner(); p.pan.value = pan; g.connect(p); p.connect(audio.out); } else g.connect(audio.out);
+  audio.voices++; src.onended = () => audio.voices--; src.start();
+}
+// Online snapshots carry no shot events: a bullet or bomb id we have not seen, next to a player, is a fresh shot
+function netShots(s, m){
+  const out = [], seen = new Set(); let max = s.maxShot || 0;
+  for (const a of m.B.concat(m.M)){
+    if (a[0] <= (s.maxShot || 0)) continue; max = Math.max(max, a[0]);
+    let best = null, bd = 160;
+    for (const t of m.T){ const d = Math.hypot(t[1] - a[1], t[2] - a[2]); if (d < bd){ bd = d; best = t; } }
+    if (best && !seen.has(best[0])){ seen.add(best[0]); out.push({k:'shot', by:best[0], x:best[1], y:best[2], c:CLASS_LIST[best[4]] || 'splat'}); }
+  }
+  if (s.maxShot !== undefined) s.maxShot = max; else { s.maxShot = max; return []; }
+  return out;
+}
+
 /* ---------- events → effects ---------- */
 function handleEvent(e, myId){
   if (e.id !== undefined && e.id !== myId) return;
   if (e.k === 'hit' && e.by !== myId) return;
   const mode = session.mode;
   switch (e.k){
-    case 'ring': FX.rings.push({x:e.x, y:e.y, r:e.r, color: e.o ? ownerColor(mode, e.o) : INK, t:0, T:0.4}); break;
-    case 'kill': FX.feed.unshift({text: e.an ? e.an + ' splatted ' + e.bn : e.bn + ' got splatted', mine: e.a === myId || e.b === myId, t:4}); FX.feed.length = Math.min(FX.feed.length, 4); break;
+    case 'shot': sfx(SFX_VOL['shot-' + e.c] ? 'shot-' + e.c : 'shot-splat', e.x, e.y, e.by === myId); break;
+    case 'ring': FX.rings.push({x:e.x, y:e.y, r:e.r, color: e.o ? ownerColor(mode, e.o) : INK, t:0, T:0.4}); sfx('splash', e.x, e.y); break;
+    case 'kill': FX.feed.unshift({text: e.an ? e.an + ' splatted ' + e.bn : e.bn + ' got splatted', mine: e.a === myId || e.b === myId, t:4}); FX.feed.length = Math.min(FX.feed.length, 4); if (e.a === myId) sfx('kill'); else if (e.b === myId) sfx('splatted'); break;
     case 'gold': FX.feed.unshift({text:'A gold bucket appeared in the centre', mine:false, t:4}); FX.feed.length = Math.min(FX.feed.length, 4); break;
-    case 'hit': FX.hits.push({x:e.x, y:e.y, t:0, T:0.2}); break;
-    case 'lvl': FX.toast = {text:'Level ' + e.lv, t:1.6}; break;
+    case 'hit': FX.hits.push({x:e.x, y:e.y, t:0, T:0.2}); sfx('hit'); break;
+    case 'lvl': FX.toast = {text:'Level ' + e.lv, t:1.6}; sfx('levelup'); break;
     case 'cls': if (session.kind !== 'demo') FX.toast = {text:'Class unlocked: pick one', t:2}; break;
-    case 'xform': if (session.kind !== 'demo') FX.toast = {text:'You are a ' + CLASSES[e.cls].label + ' now' + (e.refund ? ' · +' + e.refund*S.ROOKIE_COST + ' points back' : ''), t:2.4}; break;
+    case 'xform': if (session.kind !== 'demo') FX.toast = {text:'You are a ' + CLASSES[e.cls].label + ' now' + (e.refund ? ' · +' + e.refund*S.ROOKIE_COST + ' points back' : ''), t:2.4}; sfx('levelup'); break;
     case 'toast': FX.toast = {text:e.text, t:1.8}; break;
     case 'shake': FX.shake = Math.max(FX.shake, e.s); break;
-    case 'end': if (session.kind !== 'demo') showResults(); break;
+    case 'end': if (session.kind !== 'demo'){ sfx('end'); showResults(); } break;
   }
 }
 
@@ -845,6 +894,7 @@ function openPause(){
 }
 function closePause(){ $('pause').hidden = true; keys.clear(); }
 $('resume').addEventListener('click', closePause);
+$('soundBtn').addEventListener('click', () => setMuted(!audio.muted)); setMuted(audio.muted);
 $('quit').addEventListener('click', toTitle);
 async function refreshOnline(){
   if ($('title').hidden) return;
@@ -859,6 +909,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'Escape'){ if (!e.repeat){ if (!$('pause').hidden) closePause(); else openPause(); } return; }
   if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code) && inGame()) e.preventDefault();
   if (e.code === 'Space' && !e.repeat) queueSpecial();
+  if (e.code === 'KeyM' && !e.repeat) setMuted(!audio.muted);
   keys.add(e.code);
   if (inGame() && menuOpen() && /^Digit[1-4]$/.test(e.code)) chooseClass(CLASS_KEYS[Number(e.code.slice(5)) - 1]);
   else if (inGame() && /^Digit[1-6]$/.test(e.code)) sendUpgrade(Number(e.code.slice(5)) - 1);

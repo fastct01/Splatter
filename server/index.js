@@ -14,7 +14,7 @@ const SIM_DT = 1/60;                // 60 physics steps per second
 const END_PAUSE = 12;               // seconds between matches
 const MIN_PLAYERS = 2;              // a match starts once this many players are in the room
 const MIME = {'.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8',
-  '.json':'application/json', '.png':'image/png', '.svg':'image/svg+xml', '.ico':'image/x-icon', '.webmanifest':'application/manifest+json'};
+  '.json':'application/json', '.mp3':'audio/mpeg', '.png':'image/png', '.svg':'image/svg+xml', '.ico':'image/x-icon', '.webmanifest':'application/manifest+json'};
 
 /* ---------- rooms ---------- */
 const rooms = new Map();

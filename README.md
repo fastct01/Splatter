@@ -46,5 +46,5 @@ Every 50 XP gives 1 upgrade point. Class upgrades cost 10 points (one per 500 XP
 
 ## Controls
 
-- Computer: WASD to move, mouse to aim, click to shoot, Space for your class special, 1–6 to upgrade, 1–4 to pick a class when the class menu is open.
+- Computer: WASD to move, mouse to aim, click to shoot, Space for your class special, M to mute, 1–6 to upgrade, 1–4 to pick a class when the class menu is open.
 - Phone: left thumb moves, right thumb aims and shoots, pink button for your special.

@@ -328,6 +328,7 @@ export function createSim(opts){
     const C = CLASSES[t.cls];
     if (t.ink < C.ink) return;
     t.ink -= C.ink;
+    onEvent({k:'shot', by:t.id, x:t.x, y:t.y, c:t.cls});
     t.reload = 1/C.rate*(1 - 0.07*up(t, 'rate'))*(t.cls === 'splat' && t.specialT > 0 ? 0.5 : 1);
     const dm = 1 + 0.10*up(t, 'dmg'), rm = 1 + 0.08*up(t, 'range');
     const ca = Math.cos(t.aim), sa = Math.sin(t.aim);
