@@ -12,6 +12,7 @@ const PORT = Number(process.env.PORT) || 3000;
 const TICK_MS = 50;                 // 20 snapshots per second
 const SIM_DT = 1/60;                // 60 physics steps per second
 const END_PAUSE = 12;               // seconds between matches
+const MIN_PLAYERS = 2;              // a match starts once this many players are in the room
 const MIME = {'.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8',
   '.json':'application/json', '.png':'image/png', '.svg':'image/svg+xml', '.ico':'image/x-icon', '.webmanifest':'application/manifest+json'};
 
@@ -24,10 +25,10 @@ class Room {
     this.id = ++roomSeq; this.mode = mode;
     this.clients = new Set();
     this.stamps = []; this.events = [];
-    this.phase = 'play'; this.endT = 0; this.rosterDirty = false;
+    this.phase = 'wait'; this.endT = 0; this.rosterDirty = false;
     this.acc = 0; this.last = Date.now();
     this.sim = createSim({
-      mode,
+      mode, bots: false,
       onStamp: (x, y, r, o, rot) => this.stamps.push(Math.round(x), Math.round(y), Math.round(r), o, Math.round(rot*1000)),
       onEvent: e => this.onEvent(e)
     });
@@ -51,7 +52,15 @@ class Room {
     c.room = this; c.tankId = t.id; this.clients.add(c);
     this.rosterDirty = true;
     send(c, this.matchInfo(c));
+    if (this.phase === 'wait' && this.clients.size >= MIN_PLAYERS) this.startMatch();
     return true;
+  }
+  startMatch(){
+    this.phase = this.clients.size >= MIN_PLAYERS ? 'play' : 'wait';
+    this.acc = 0; this.stamps = []; this.events = [];
+    this.sim.resetMatch();
+    this.rosterDirty = false;
+    for (const c of this.clients) send(c, this.matchInfo(c));
   }
   leave(c){
     this.clients.delete(c);
@@ -63,20 +72,14 @@ class Room {
     const now = Date.now();
     let dt = (now - this.last)/1000; this.last = now;
     if (dt > 0.25) dt = 0.25;
-    if (this.phase === 'play'){
+    if (this.phase === 'play' || this.phase === 'wait'){
+      const untimed = this.phase === 'wait';
       this.acc += dt;
       let n = 0;
-      while (this.acc >= SIM_DT && n < 15){ this.sim.step(SIM_DT); this.acc -= SIM_DT; n++; if (this.phase !== 'play') break; }
+      while (this.acc >= SIM_DT && n < 15){ this.sim.step(SIM_DT, untimed); this.acc -= SIM_DT; n++; if (this.phase === 'end') break; }
     } else {
       this.endT -= dt;
-      if (this.endT <= 0){
-        this.phase = 'play'; this.acc = 0;
-        this.stamps = []; this.events = [];
-        this.sim.resetMatch();
-        this.rosterDirty = false;
-        for (const c of this.clients) send(c, this.matchInfo(c));
-        return;
-      }
+      if (this.endT <= 0){ this.startMatch(); return; }
     }
     this.broadcast();
   }

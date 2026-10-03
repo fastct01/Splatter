@@ -254,7 +254,7 @@ function onNet(s, m, timeout){
     s.snaps.push(snap); if (s.snaps.length > 30) s.snaps.shift();
     if (m.R) s.roster = new Map(m.R.map(r => [r.id, r]));
     s.counts = Int32Array.from(m.C); s.time = m.tm; s.Y = m.Y; s.lastSnap = snap;
-    if (m.ph === 'play') s.phase = 'play';
+    s.phase = m.ph;
     if (m.P.length || m.E.length) s.queue.push({t:m.t, P:m.P, E:m.E});
     return;
   }
@@ -296,7 +296,7 @@ function buildView(now){
     return {mode:G.mode, obstacles:G.obstacles, tanks:G.tanks, bullets:G.bullets, objects:G.objects, bombs:G.bombs, time:G.time,
             counts:G.counts, paintable:G.paintable, me: s.myId ? s.sim.getTank(s.myId) : null, grid:G.grid};
   }
-  const v = {mode:s.mode, obstacles:s.obstacles, tanks:[], bullets:[], objects:[], bombs:[], time:s.time, counts:s.counts, paintable:s.paintable, me:null, grid:s.grid};
+  const v = {mode:s.mode, obstacles:s.obstacles, tanks:[], bullets:[], objects:[], bombs:[], time:s.time, counts:s.counts, paintable:s.paintable, me:null, grid:s.grid, wait: s.phase === 'wait'};
   const A = s.snaps; if (!A.length) return v;
   const rt = now + s.offset - INTERP;
   processNetQueue(s, rt);
@@ -498,12 +498,20 @@ function drawHUD(){
   if (!narrow){
     text('SPLATTER', L, T0 + 26*u, '800 ' + Math.round(26*u) + 'px ' + FD);
     const humans = V.tanks.filter(t => t.human).length;
-    text((V.mode === 'teams' ? 'Teams · 5 v 5 v 5' : 'Free-for-all · 15 players') + (online ? ' · ' + humans + ' online' : ' · practice'), L, T0 + 46*u, '400 ' + Math.round(14*u) + 'px ' + FB, MUTED);
+    text((V.mode === 'teams' ? 'Teams · up to 5 v 5 v 5' : 'Free-for-all · up to 15') + (online ? ' · ' + humans + (humans === 1 ? ' player' : ' players') : ' · practice vs bots'), L, T0 + 46*u, '400 ' + Math.round(14*u) + 'px ' + FB, MUTED);
     feedY = T0 + 62*u;
   }
-  text(fmtTime(V.time), cx, T0 + 28*u, '800 ' + Math.round(30*u) + 'px ' + FD, V.time <= 10 ? ALERT : INK, 'center');
   let belowTimer;
-  if (V.mode === 'teams'){
+  if (V.wait){
+    text('Waiting for players', cx, T0 + 28*u, '800 ' + Math.round(26*u) + 'px ' + FD, INK, 'center');
+    const str = 'The match starts when someone else joins';
+    ctx.font = '500 ' + Math.round(14*u) + 'px ' + FB; const w = ctx.measureText(str).width + 24*u;
+    ctx.fillStyle = INK; rr(ctx, cx - w/2, T0 + 38*u, w, 26*u, 13*u); ctx.fill();
+    text(str, cx, T0 + 38*u + 13*u, ctx.font, WHITE, 'center', 'middle');
+    belowTimer = T0 + 70*u;
+  } else text(fmtTime(V.time), cx, T0 + 28*u, '800 ' + Math.round(30*u) + 'px ' + FD, V.time <= 10 ? ALERT : INK, 'center');
+  if (V.wait){}
+  else if (V.mode === 'teams'){
     const bw = Math.min(560*u, VW - 2*(narrow ? 16 : 300*u)), bx = cx - bw/2, by = T0 + 40*u, bh = 22*u;
     ctx.fillStyle = WHITE; rr(ctx, bx, by, bw, bh, bh/2); ctx.fill();
     ctx.save(); rr(ctx, bx, by, bw, bh, bh/2); ctx.clip(); let xx = bx;
@@ -546,7 +554,7 @@ function drawHUD(){
       text(nm, x + 32*u, ry + rowH/2, f, INK, 'left', 'middle');
       text(Math.round(q.v*100) + '%', x + w - 14*u, ry + rowH/2, f, INK, 'right', 'middle');
     }
-    if (!narrow){ const pr = rows.findIndex(q => q.tank && q.tank.id === p.id); text(pr >= show ? 'You: #' + (pr+1) + ' · ' + Math.round(rows[pr].v*100) + '%' : '+' + (rows.length - show) + ' more players', x + 14*u, yy + h - 12*u, '400 ' + Math.round(12.5*u) + 'px ' + FB, MUTED); }
+    if (!narrow){ const pr = rows.findIndex(q => q.tank && q.tank.id === p.id); const more = pr >= show ? 'You: #' + (pr+1) + ' · ' + Math.round(rows[pr].v*100) + '%' : rows.length > show ? '+' + (rows.length - show) + ' more players' : (rows.length === 1 ? 'Share the link to invite friends' : rows.length + ' players in this match'); text(more, x + 14*u, yy + h - 12*u, '400 ' + Math.round(12.5*u) + 'px ' + FB, MUTED); }
   } else if (VW >= 1000){
     const card = (team, x, y) => {
       const w = 176*u, h = (32 + 5*18 + 8)*u; ctx.fillStyle = WHITE; rr(ctx, x, y, w, h, 14*u); ctx.fill(); ctx.lineWidth = 4*u; ctx.strokeStyle = TCOL[team]; ctx.stroke();
@@ -555,7 +563,7 @@ function drawHUD(){
         ctx.beginPath(); ctx.arc(x + 18*u, ry + 9*u, 6*u, 0, Math.PI*2); ctx.fillStyle = PCOL[t.slot]; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = INK; ctx.stroke();
         let nm = t.name; ctx.font = (t.id === p.id ? '500 ' : '400 ') + Math.round(13*u) + 'px ' + FB; while (ctx.measureText(nm).width > w - 70*u && nm.length > 4) nm = nm.slice(0,-2) + '…';
         text(nm, x + 30*u, ry + 9*u, ctx.font, t.dead ? MUTED : INK, 'left', 'middle');
-        text(t.human ? 'Lv ' + t.level : 'bot', x + w - 12*u, ry + 9*u, '400 ' + Math.round(12*u) + 'px ' + FB, MUTED, 'right', 'middle');
+        text((t.human || session.kind === 'net') ? 'Lv ' + t.level : 'bot', x + w - 12*u, ry + 9*u, '400 ' + Math.round(12*u) + 'px ' + FB, MUTED, 'right', 'middle');
       });
     };
     const ch = 138*u; card(1, R - 176*u, T0 + 92*u); card(2, R - 176*u, T0 + 92*u + ch); card(3, R - 176*u, T0 + 92*u + 2*ch);
@@ -599,7 +607,7 @@ function drawHUD(){
     ctx.font = '800 ' + Math.round(20*u) + 'px ' + FD; const w = ctx.measureText(str).width + 36*u;
     ctx.fillStyle = INK; rr(ctx, cx - w/2, VH/2 - 26*u, w, 52*u, 26*u); ctx.fill();
     text(str, cx, VH/2, ctx.font, WHITE, 'center', 'middle');
-  } else if (V.time <= 10 && V.time > 0){
+  } else if (!V.wait && V.time <= 10 && V.time > 0){
     text(String(Math.ceil(V.time)), cx, VH/2 - 120*u, '800 ' + Math.round(96*u) + 'px ' + FD, 'rgba(35,42,53,.35)', 'center', 'middle');
   }
   if (FX.toast){ ctx.globalAlpha = Math.min(1, FX.toast.t*2); text(FX.toast.text, cx, VH*0.3, '800 ' + Math.round(26*u) + 'px ' + FD, INK, 'center', 'middle'); ctx.globalAlpha = 1; }

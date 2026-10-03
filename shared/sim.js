@@ -89,6 +89,7 @@ export function createSim(opts){
   const mode = opts.mode === 'teams' ? 'teams' : 'ffa';
   const onStamp = opts.onStamp || (() => {});
   const onEvent = opts.onEvent || (() => {});
+  const useBots = opts.bots !== false;
   let nextId = 1, nextB = 1;
   const G = {mode, grid:new Uint8Array(GW*GH), counts:new Int32Array(16), paintable:0, tanks:[], bullets:[], bombs:[], objects:[],
              obstacles:[], time:MATCH, clock:0, over:false, goldT:25};
@@ -128,7 +129,7 @@ export function createSim(opts){
   function freeSlots(){ const used = new Set(G.tanks.map(t => t.slot)); const s = []; for (let k=1;k<=15;k++) if (!used.has(k)) s.push(k); return shuffle(s); }
 
   function fillBots(){
-    while (G.tanks.length < MAX_PLAYERS){
+    while (useBots && G.tanks.length < MAX_PLAYERS){
       let team = 0;
       if (mode === 'teams'){ const c = [0,0,0,0]; for (const t of G.tanks) c[t.team]++; team = [1,2,3].find(k => c[k] < 5); }
       const t = makeTank({name:botName(), slot:freeSlots()[0], team});
@@ -151,9 +152,19 @@ export function createSim(opts){
   }
 
   function addHuman(o){
+    const want = o.slot >= 1 && o.slot <= 15 ? o.slot : 1;
+    if (!useBots){
+      if (G.tanks.length >= MAX_PLAYERS) return null;
+      let team = 0;
+      if (mode === 'teams'){ const c = [0,0,0,0]; for (const t of G.tanks) c[t.team]++; team = shuffle([1,2,3]).sort((a,b) => c[a] - c[b])[0]; if (c[team] >= 5) return null; }
+      const slot = G.tanks.some(t => t.slot === want) ? freeSlots()[0] : want;
+      const t = makeTank({name:o.name || 'Player', human:true, slot, team});
+      G.tanks.push(t); spawnTank(t);
+      onEvent({k:'roster'});
+      return t;
+    }
     const bots = G.tanks.filter(t => !t.human);
     if (!bots.length) return null;
-    const want = o.slot >= 1 && o.slot <= 15 ? o.slot : 1;
     let victim;
     if (mode === 'teams'){
       const hc = [0,0,0,0]; for (const t of G.tanks) if (t.human) hc[t.team]++;
@@ -174,6 +185,7 @@ export function createSim(opts){
   }
   function removeHuman(id){
     const i = G.tanks.findIndex(t => t.id === id); if (i < 0) return;
+    if (!useBots){ G.tanks.splice(i, 1); onEvent({k:'roster'}); return; }
     const h = G.tanks[i];
     const b = makeTank({name:'', slot:h.slot, team:h.team});
     G.tanks[i] = b; b.name = botName(); spawnTank(b);
