@@ -73,6 +73,12 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .stats{position:fixed;z-index:3;left:calc(16px + env(safe-area-inset-left,0px));width:268px;max-width:calc(100vw - 32px);background:var(--panel);border:3px solid var(--ink);border-radius:14px;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px}
 .stats-head{display:flex;justify-content:space-between;font:800 15px var(--display)}
 .stats-head span:last-child{font:500 13px var(--body);color:var(--muted)}
+.ptsbox{width:250px}
+.ptsbox .stats-head{white-space:nowrap;gap:10px}
+#ptsCount{font:800 15px var(--display);color:var(--ink);font-variant-numeric:tabular-nums}
+.ptsbar{display:grid;gap:3px}
+.ptsbar i{height:10px;border-radius:3px;background:var(--floor)}
+.ptsbar i.on{background:var(--pink)}
 #statRows{display:flex;flex-direction:column;gap:6px}
 .srow{display:grid;grid-template-columns:96px 1fr 36px;align-items:center;gap:8px;font-size:13px}
 .pips{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:2px}
@@ -84,7 +90,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .pause-card h2{font:800 32px var(--display);margin:0}
 .pause-card .sub{margin:0 0 4px}
 .leave{position:fixed;z-index:3;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:none}
-@media (max-width:520px){.pick small,.pick kbd{display:none}.clsmenu-head b{font-size:16px}.card{padding:18px}.stats{width:220px}.srow{grid-template-columns:78px 1fr 32px;font-size:12px}}
+@media (max-width:520px){.pick small,.pick kbd{display:none}.clsmenu-head b{font-size:16px}.card{padding:18px}.stats{width:220px}.ptsbox{width:150px;padding:8px 10px}.ptsbox .stats-head,#ptsCount{font-size:13px}.pts-word{display:none}.srow{grid-template-columns:78px 1fr 32px;font-size:12px}}
 @media (prefers-reduced-motion:reduce){.btn:active,.mode:active{transform:none}.clsmenu{animation:none}}
 </style>
 </head>
@@ -148,6 +154,11 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 <div id="clsMenu" class="clsmenu" role="group" aria-labelledby="clsMenuTitle" hidden>
   <div class="clsmenu-head"><b id="clsMenuTitle">Choose your class</b><span id="clsMenuNote"></span></div>
   <div class="picks" id="clsCards"></div>
+</div>
+
+<div id="ptsBox" class="stats ptsbox" role="status" hidden>
+  <div class="stats-head"><span>Next upgrade</span><span id="ptsCount"></span></div>
+  <div class="ptsbar" id="ptsBar" aria-hidden="true"></div>
 </div>
 
 <div id="stats" class="stats" hidden>
@@ -764,7 +775,7 @@ function drawHUD(){
     ctx.fillStyle = WHITE; rr(ctx, bx, by, bw, 12*u, 6*u); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
     ctx.fillStyle = INK; rr(ctx, bx, by, bw*xpFrac, 12*u, 6*u); ctx.fill();
   }
-  statsBox.style.bottom = (VH - iy + 10) + 'px';
+  statsBox.style.bottom = ptsBox.style.bottom = (VH - iy + 10) + 'px';
   if (touchCtl.used && p.cls !== 'rookie'){
     const sb = specialBtn(); ctx.beginPath(); ctx.arc(sb.x, sb.y, sb.r, 0, Math.PI*2); ctx.fillStyle = p.specialCd > 0 ? FLOOR : '#FF2D87'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
     if (p.specialCd > 0){ ctx.beginPath(); ctx.moveTo(sb.x, sb.y); ctx.arc(sb.x, sb.y, sb.r - 4, -Math.PI/2, -Math.PI/2 + Math.PI*2*(1 - p.specialCd/(8*(1 - 0.10*(p.stats ? S.up(p, 'scd') : 0))))); ctx.closePath(); ctx.fillStyle = 'rgba(35,42,53,.18)'; ctx.fill(); }
@@ -792,10 +803,24 @@ function buildStatRows(cls){
   for (let i=0;i<C.ups.length;i++) $('up' + i).addEventListener('click', e => { e.stopPropagation(); sendUpgrade(i); });
 }
 buildStatRows('rookie');
+// before you can afford an upgrade, a small counter shows points towards the next one (e.g. 3 / 10)
+const ptsBox = $('ptsBox'), ptsBar = $('ptsBar');
+let ptsKey = '';
+function syncPoints(p, statsShown){
+  const show = !!(p && p.stats && !p.dead && !p.classPending && !statsShown && p.stats.some(v => v < 8));
+  if (ptsBox.hidden === show) ptsBox.hidden = !show;
+  if (!show) return;
+  const cost = S.upgradeCost(p), have = Math.min(p.points, cost), key = have + '/' + cost;
+  if (key === ptsKey) return; ptsKey = key;
+  $('ptsCount').innerHTML = have + ' / ' + cost + '<span class="pts-word"> points</span>';
+  if (ptsBar.children.length !== cost){ ptsBar.style.gridTemplateColumns = 'repeat(' + cost + ',minmax(0,1fr))'; ptsBar.innerHTML = '<i></i>'.repeat(cost); }
+  [...ptsBar.children].forEach((pip, k) => pip.classList.toggle('on', k < have));
+}
 function syncStats(){
   const p = session && session.kind !== 'demo' && $('results').hidden && $('pause').hidden && V ? V.me : null;
   const show = !!(p && p.stats && !p.dead && !p.classPending && p.points >= S.upgradeCost(p) && p.stats.some(v => v < 8));
   if (statsBox.hidden === show) statsBox.hidden = !show;
+  syncPoints(p, show);
   if (!show) return;
   if (p.cls !== statsCls){ buildStatRows(p.cls); statsKey = ''; }
   const key = p.cls + '|' + p.points + '|' + p.stats.join(',');
@@ -863,7 +888,7 @@ function showResults(){
   const net = session.kind === 'net';
   $('again').hidden = net; $('nextNote').hidden = !net; $('menu').textContent = net ? 'Leave' : 'Main menu';
   if (net) session.endAt = performance.now() + 12000;
-  $('pause').hidden = true; statsBox.hidden = true;
+  $('pause').hidden = true; statsBox.hidden = true; ptsBox.hidden = true;
   $('results').hidden = false;
   setTimeout(() => (net ? $('menu') : $('again')).focus(), 50);
 }
@@ -877,7 +902,7 @@ const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').match
 $('hint').textContent = coarse ? 'Left thumb moves. Right thumb aims and shoots. Tap the pink button for your class special.' : 'WASD to move · mouse to aim · click to shoot · Space for special · 1–6 to upgrade';
 function setStatus(t, err){ const el = $('status'); el.textContent = t || ''; el.classList.toggle('err', !!err); }
 function hideAllScreens(){ $('pause').hidden = true; $('title').hidden = true; $('results').hidden = true; mouse.down = false; touchCtl.left = touchCtl.right = null; }
-function toTitle(){ closeNet(); clsMenu.hidden = true; $('pause').hidden = true; $('results').hidden = true; statsBox.hidden = true; $('title').hidden = false; startLocal('demo', 'ffa'); refreshOnline(); }
+function toTitle(){ closeNet(); clsMenu.hidden = true; $('pause').hidden = true; $('results').hidden = true; statsBox.hidden = true; ptsBox.hidden = true; $('title').hidden = false; startLocal('demo', 'ffa'); refreshOnline(); }
 $('playOnline').addEventListener('click', () => startNet(settings.mode));
 $('playLocal').addEventListener('click', () => { hideAllScreens(); setStatus(''); startLocal('local', settings.mode); statsKey = ''; });
 nick.addEventListener('keydown', e => { if (e.key === 'Enter') startNet(settings.mode); });
