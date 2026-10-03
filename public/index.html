@@ -486,7 +486,11 @@ function drawWall(c, o){
 function drawObject(c, o){
   c.save(); c.translate(o.x, o.y); c.rotate(o.rot);
   c.lineWidth = 3; c.strokeStyle = INK;
-  if (o.type === 'barrel'){
+  if (o.type === 'triangle'){
+    c.beginPath(); for (let k=0;k<3;k++){ const a = -Math.PI/2 + k*Math.PI*2/3; c.lineTo(Math.cos(a)*o.r*1.15, Math.sin(a)*o.r*1.15); } c.closePath();
+    c.lineJoin = 'round'; c.fillStyle = o.flash > 0 ? WHITE : '#FF7A59'; c.fill(); c.stroke(); c.lineJoin = 'miter';
+    c.beginPath(); c.arc(0, 0, o.r*0.22, 0, Math.PI*2); c.fillStyle = WHITE; c.fill();
+  } else if (o.type === 'barrel'){
     c.beginPath(); for (let k=0;k<5;k++){ const a = -Math.PI/2 + k*Math.PI*2/5; c.lineTo(Math.cos(a)*o.r, Math.sin(a)*o.r); } c.closePath();
     c.fillStyle = o.flash > 0 ? FLOOR : WHITE; c.fill(); c.stroke();
     c.beginPath(); c.arc(0,0,o.r*0.32,0,Math.PI*2); c.fillStyle = ROCK; c.fill();

@@ -16,8 +16,11 @@ export const CLASSES = {
 export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner'];
 export const CLASS_KEYS = ['roller','bomber','sprayer','liner'];
 export const STAT_NAMES = ['Ink capacity','Bullet damage','Fire rate','Bullet range','Hull health','Move speed'];
-export const OBJ_TYPES = ['can','barrel','gold'];
-export const OBJ = {can:{hp:20,mass:2,xp:10,r:22,splat:50}, barrel:{hp:80,mass:6,xp:50,r:30,splat:120}, gold:{hp:200,mass:4,xp:200,r:26,splat:160}};
+export const OBJ_TYPES = ['can','barrel','gold','triangle'];
+export const OBJ = {can:{hp:20,mass:2,xp:10,r:22,splat:50}, barrel:{hp:80,mass:6,xp:50,r:30,splat:120}, gold:{hp:200,mass:4,xp:200,r:26,splat:160}, triangle:{hp:45,mass:3,xp:35,r:26,splat:75}};
+// Share of normal spawns: triangles are rare (about 1 in 12)
+export const TRIANGLE_CHANCE = 0.08, BARREL_CHANCE = 0.22;
+export function randomObjectType(){ const r = Math.random(); return r < TRIANGLE_CHANCE ? 'triangle' : r < TRIANGLE_CHANCE + BARREL_CHANCE ? 'barrel' : 'can'; }
 const BOT_NAMES = ['blue_wave','limelight','tangerine','sunny','purp','aqua','redline','honey','moss','minty','skyhigh','indigo','magenta','cocoa','splatcat','drip','smudge','inky','roller_rex','blotto','gloss','tint'];
 
 export const xpNeed = n => Math.round(15*Math.pow(n,1.4));
@@ -147,7 +150,7 @@ export function createSim(opts){
     G.tanks = humans.map(h => makeTank({id:h.id, name:h.name, human:true, slot:h.slot, team:h.team}));
     for (const t of G.tanks) spawnTank(t);
     fillBots();
-    for (let k=0;k<40;k++) spawnObject(Math.random() < 0.75 ? 'can' : 'barrel');
+    for (let k=0;k<40;k++) spawnObject(randomObjectType());
     onEvent({k:'roster'});
   }
 
@@ -230,7 +233,7 @@ export function createSim(opts){
       const x = near ? WW/2 + rand(-260,260) : rand(120,WW-120), y = near ? WH/2 + rand(-200,200) : rand(120,WH-120);
       if (inObstacle(x,y,d.r+20)) continue;
       if (G.tanks.some(t => !t.dead && Math.hypot(t.x-x,t.y-y) < 220)) continue;
-      G.objects.push({id:nextB++, type, x, y, vx:0, vy:0, dir:rand(0,TAU), rot:rand(0,6), vr:rand(-0.6,0.6), hp:d.hp, maxHp:d.hp, mass:d.mass, r:d.r, flash:0, dead:false});
+      G.objects.push({id:nextB++, type, x, y, vx:0, vy:0, dir:rand(0,TAU), rot:rand(0,6), vr: type === 'triangle' ? rand(1.2,1.8)*(Math.random() < 0.5 ? -1 : 1) : rand(-0.6,0.6), hp:d.hp, maxHp:d.hp, mass:d.mass, r:d.r, flash:0, dead:false});
       return;
     }
   }
@@ -592,7 +595,7 @@ export function createSim(opts){
     updateObjects(dt);
     collide();
     G.objects = G.objects.filter(o => !o.dead);
-    if (G.objects.filter(o => o.type !== 'gold').length < 40) spawnObject(Math.random() < 0.75 ? 'can' : 'barrel');
+    if (G.objects.filter(o => o.type !== 'gold').length < 40) spawnObject(randomObjectType());
     G.goldT -= dt;
     if (G.goldT <= 0){ G.goldT = 60; if (!G.objects.some(o => o.type === 'gold')){ spawnObject('gold', true); onEvent({k:'gold'}); } }
   }
