@@ -26,6 +26,7 @@ const BOT_NAMES = ['blue_wave','limelight','tangerine','sunny','purp','aqua','re
 export const xpNeed = n => Math.round(15*Math.pow(n,1.4));
 export const maxHpOf = stats => 100 + 12*stats[4];
 export const inkCapOf = stats => 100*(1 + 0.12*stats[0]);
+export const START_INK = 0.4;
 const TAU = Math.PI*2;
 const rand = (a,b) => a + Math.random()*(b-a);
 const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
@@ -224,7 +225,7 @@ export function createSim(opts){
       [x,y] = best || [WW/2, WH/2];
     }
     Object.assign(t, {x, y, vx:0, vy:0, dead:false, protect:2, reload:0, damagers:{}, specialT:0});
-    refresh(t); t.hp = t.mhp; t.ink = t.icap;
+    refresh(t); t.hp = t.mhp; t.ink = t.icap*START_INK;
   }
 
   function spawnObject(type, near){
