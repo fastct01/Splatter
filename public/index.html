@@ -66,6 +66,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .next{font:500 15px var(--body);color:var(--muted);font-variant-numeric:tabular-nums}
 .stats{position:fixed;z-index:3;left:calc(16px + env(safe-area-inset-left,0px));width:268px;max-width:calc(100vw - 32px);background:var(--panel);border:3px solid var(--ink);border-radius:14px;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px}
+.stats.locked #statRows{display:none}
 .stats-head{display:flex;justify-content:space-between;font:800 15px var(--display)}
 .stats-head span:last-child{font:500 13px var(--body);color:var(--muted)}
 #statRows{display:flex;flex-direction:column;gap:6px}
@@ -154,7 +155,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 
 <script type="module">
 import * as S from '/shared/sim.js';
-const {WW, WH, CELL, GW, GH, PCOL, PNAME, TCOL, TNAME, CLASSES, CLASS_LIST, CLASS_KEYS, STAT_NAMES, OBJ, OBJ_TYPES} = S;
+const {UPGRADE_COST, WW, WH, CELL, GW, GH, PCOL, PNAME, TCOL, TNAME, CLASSES, CLASS_LIST, CLASS_KEYS, STAT_NAMES, OBJ, OBJ_TYPES} = S;
 const $ = id => document.getElementById(id);
 const cv = $('game'), ctx = cv.getContext('2d');
 let VW = 0, VH = 0, DPR = 1, SAFE = {t:0,r:0,b:0,l:0};
@@ -740,13 +741,15 @@ for (let i=0;i<6;i++) $('up' + i).addEventListener('click', e => { e.stopPropaga
 let statsKey = '';
 function syncStats(){
   const p = session && session.kind !== 'demo' && $('results').hidden && $('pause').hidden && V ? V.me : null;
-  const show = !!(p && p.points > 0 && p.stats);
+  const show = !!(p && p.stats && !p.dead && p.stats.some(v => v < 8));
   if (statsBox.hidden === show) statsBox.hidden = !show;
   if (!show) return;
   const key = p.points + '|' + p.stats.join(',');
   if (key === statsKey) return; statsKey = key;
-  $('ptsLeft').textContent = p.points + (p.points === 1 ? ' point' : ' points');
-  statRows.querySelectorAll('.srow').forEach((row,i) => { row.querySelectorAll('i').forEach((pip,k) => pip.classList.toggle('on', k < p.stats[i])); $('up' + i).disabled = p.stats[i] >= 8; });
+  const ok = p.points >= UPGRADE_COST;
+  statsBox.classList.toggle('locked', !ok);
+  $('ptsLeft').textContent = ok ? p.points + ' points' : p.points + ' / ' + UPGRADE_COST + ' points';
+  statRows.querySelectorAll('.srow').forEach((row,i) => { row.querySelectorAll('i').forEach((pip,k) => pip.classList.toggle('on', k < p.stats[i])); $('up' + i).disabled = !ok || p.stats[i] >= 8; });
 }
 
 /* ---------- DOM: class select ---------- */

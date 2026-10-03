@@ -25,6 +25,7 @@ const BOT_NAMES = ['blue_wave','limelight','tangerine','sunny','purp','aqua','re
 
 export const xpNeed = n => Math.round(19*Math.pow(n,1.4));
 export const CLASS_LEVEL = 10;     // level at which a player picks a class
+export const XP_PER_POINT = 50, UPGRADE_COST = 10;
 export const maxHpOf = stats => 100 + 12*stats[4];
 export const inkCapOf = stats => 100*(1 + 0.12*stats[0]);
 export const START_INK = 0.4;
@@ -119,7 +120,7 @@ export function createSim(opts){
 
   function makeTank(o){
     const t = Object.assign({id:nextId++, name:'', human:false, slot:1, team:0, x:0, y:0, vx:0, vy:0, aim:0, aimDist:400, cls:'splat', r:30,
-      level:1, xp:0, xpTotal:0, points:0, stats:[0,0,0,0,0,0], hp:100, ink:100, reload:0, specialCd:0, specialT:0, cluster:false,
+      level:1, xp:0, xpTotal:0, points:0, ptsXp:0, stats:[0,0,0,0,0,0], hp:100, ink:100, reload:0, specialCd:0, specialT:0, cluster:false,
       surface:0, sm:1, am:1, lastHit:-99, dead:false, respawnT:0, protect:2, flash:0, cellsPainted:0, paintAcc:0, splats:0, deaths:0,
       trailAcc:0, spinA:0, spinReload:0, moving:false, damagers:{}, killedBy:'', classPending:false, charge:false, spinning:false,
       ai:{think:0, wpT:0, strafe:Math.random()<0.5?1:-1, err:0, strafeT:0},
@@ -253,9 +254,10 @@ export function createSim(opts){
 
   function addXP(t, a){
     if (G.over) return;
-    t.xp += a; t.xpTotal += a;
+    t.xp += a; t.xpTotal += a; t.ptsXp += a;
+    while (t.ptsXp >= XP_PER_POINT){ t.ptsXp -= XP_PER_POINT; t.points++; }
     while (t.level < 30 && t.xp >= xpNeed(t.level)){
-      t.xp -= xpNeed(t.level); t.level++; t.points++;
+      t.xp -= xpNeed(t.level); t.level++;
       if (t.human) onEvent({k:'lvl', id:t.id, lv:t.level});
       if (t.level === CLASS_LEVEL && t.cls === 'splat'){
         if (t.human){ t.classPending = true; t.protect = Math.max(t.protect, 5); onEvent({k:'cls', id:t.id}); }
@@ -266,7 +268,7 @@ export function createSim(opts){
     t.xpn = xpNeed(t.level);
   }
   function setClass(t, k){ t.cls = k; t.r = CLASSES[k].r; t.classPending = false; t.specialCd = 2; }
-  function upgrade(t, i){ if (t.points > 0 && t.stats[i] < 8){ t.stats[i]++; t.points--; if (i===4) t.hp += 12; if (i===0) t.ink += 12; refresh(t); } }
+  function upgrade(t, i){ if (t.points >= UPGRADE_COST && t.stats[i] < 8){ t.stats[i]++; t.points -= UPGRADE_COST; if (i===4) t.hp += 12; if (i===0) t.ink += 12; refresh(t); } }
 
   function damage(t, amt, src){
     if (t.dead || t.protect > 0 || amt <= 0) return;
@@ -346,7 +348,7 @@ export function createSim(opts){
         ai.wp = bp || [WW/2, WH/2]; ai.wpT = rand(3,5);
       }
       ai.err = (Math.random()-0.5)*0.22;
-      while (t.points > 0){ const w = [2,3,3,2,3,2]; let tot = 0; for (let i=0;i<6;i++) if (t.stats[i]<8) tot += w[i]; if (!tot) break; let r = Math.random()*tot; for (let i=0;i<6;i++){ if (t.stats[i]>=8) continue; r -= w[i]; if (r <= 0){ upgrade(t,i); break; } } }
+      while (t.points >= UPGRADE_COST){ const w = [2,3,3,2,3,2]; let tot = 0; for (let i=0;i<6;i++) if (t.stats[i]<8) tot += w[i]; if (!tot) break; let r = Math.random()*tot; for (let i=0;i<6;i++){ if (t.stats[i]>=8) continue; r -= w[i]; if (r <= 0){ upgrade(t,i); break; } } }
     }
     let mx = 0, my = 0, fireOn = false, spec = false, aim = t.aim;
     const e = ai.target && !ai.target.dead ? ai.target : null;
