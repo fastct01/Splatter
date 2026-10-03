@@ -498,7 +498,8 @@ function drawHUD(){
   if (!narrow){
     text('SPLATTER', L, T0 + 26*u, '800 ' + Math.round(26*u) + 'px ' + FD);
     const humans = V.tanks.filter(t => t.human).length;
-    text((V.mode === 'teams' ? 'Teams · up to 5 v 5 v 5' : 'Free-for-all · up to 15') + (online ? ' · ' + humans + (humans === 1 ? ' player' : ' players') : ' · practice vs bots'), L, T0 + 46*u, '400 ' + Math.round(14*u) + 'px ' + FB, MUTED);
+    const sub = online ? humans + (humans === 1 ? ' player' : ' players') : 'practice vs bots';
+    text(V.mode === 'teams' ? 'Teams · up to 5 v 5 v 5 · ' + sub : sub[0].toUpperCase() + sub.slice(1), L, T0 + 46*u, '400 ' + Math.round(14*u) + 'px ' + FB, MUTED);
     feedY = T0 + 62*u;
   }
   let belowTimer;
@@ -546,15 +547,17 @@ function drawHUD(){
     const x = R - w, yy = narrow ? belowTimer + 6*u : T0;
     panel(x, yy, w, h, u);
     text('Floor owned', x + 14*u, yy + 24*u, '800 ' + Math.round(15*u) + 'px ' + FD);
+    const pr = rows.findIndex(q => q.tank && q.tank.id === p.id);
     for (let k=0;k<show;k++){
-      const q = rows[k], ry = yy + 36*u + k*rowH, isP = q.tank && q.tank.id === p.id;
-      ctx.beginPath(); ctx.arc(x + 20*u, ry + rowH/2, 6*u, 0, Math.PI*2); ctx.fillStyle = q.color; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = INK; ctx.stroke();
-      const f = (isP ? '500 ' : '400 ') + Math.round(13*u) + 'px ' + FB;
-      let nm = (k+1) + '. ' + q.name; ctx.font = f; while (ctx.measureText(nm).width > w - 90*u && nm.length > 4) nm = nm.slice(0,-2) + '…';
-      text(nm, x + 32*u, ry + rowH/2, f, INK, 'left', 'middle');
-      text(Math.round(q.v*100) + '%', x + w - 14*u, ry + rowH/2, f, INK, 'right', 'middle');
+      const i = k === show - 1 && pr >= show ? pr : k, q = rows[i], ry = yy + 36*u + k*rowH, isP = i === pr;
+      if (isP){ ctx.fillStyle = INK; rr(ctx, x + 6*u, ry, w - 12*u, rowH, rowH/2); ctx.fill(); }
+      ctx.beginPath(); ctx.arc(x + 20*u, ry + rowH/2, 6*u, 0, Math.PI*2); ctx.fillStyle = q.color; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = isP ? WHITE : INK; ctx.stroke();
+      const f = isP ? '800 ' + Math.round(13.5*u) + 'px ' + FD : '400 ' + Math.round(13*u) + 'px ' + FB, fc = isP ? WHITE : INK;
+      let nm = (i+1) + '. ' + q.name; ctx.font = f; while (ctx.measureText(nm).width > w - 90*u && nm.length > 4) nm = nm.slice(0,-2) + '…';
+      text(nm, x + 32*u, ry + rowH/2, f, fc, 'left', 'middle');
+      text(Math.round(q.v*100) + '%', x + w - 14*u, ry + rowH/2, f, fc, 'right', 'middle');
     }
-    if (!narrow){ const pr = rows.findIndex(q => q.tank && q.tank.id === p.id); const more = pr >= show ? 'You: #' + (pr+1) + ' · ' + Math.round(rows[pr].v*100) + '%' : rows.length > show ? '+' + (rows.length - show) + ' more players' : (rows.length === 1 ? 'Share the link to invite friends' : rows.length + ' players in this match'); text(more, x + 14*u, yy + h - 12*u, '400 ' + Math.round(12.5*u) + 'px ' + FB, MUTED); }
+    if (!narrow){ const more = rows.length > show ? '+' + (rows.length - show) + ' more players' : (rows.length === 1 ? 'Share the link to invite friends' : rows.length + ' players in this match'); text(more, x + 14*u, yy + h - 12*u, '400 ' + Math.round(12.5*u) + 'px ' + FB, MUTED); }
   } else if (VW >= 1000){
     const card = (team, x, y) => {
       const w = 176*u, h = (32 + 5*18 + 8)*u; ctx.fillStyle = WHITE; rr(ctx, x, y, w, h, 14*u); ctx.fill(); ctx.lineWidth = 4*u; ctx.strokeStyle = TCOL[team]; ctx.stroke();
