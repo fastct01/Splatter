@@ -4,8 +4,8 @@ A top-down paint shooter for up to 15 players. Shoot paint, cover the floor, and
 
 ## How it works
 
-- `shared/sim.js` is the whole game simulation: physics, paint grid, bullets, objects, XP, classes and bots. The server runs it authoritatively; the browser runs it for practice mode.
-- `server/index.js` serves the website and runs game rooms over WebSockets at `/ws`. Each room holds up to 15 tanks, ticks physics at 60 Hz and sends snapshots at 20 Hz.
+- `shared/sim.js` is the whole game simulation: physics, paint grid, bullets, objects, XP, classes and bots. Players are 2.5D sprites with 8 facing directions, drawn in the client from SVG. The server runs it authoritatively; the browser runs it for practice mode.
+- `server/index.js` serves the website and runs game rooms over WebSockets at `/ws`. Each room holds up to 15 players, ticks physics at 60 Hz and sends snapshots at 20 Hz.
 - `public/index.html` is the client: menus, rendering, input, interpolation and touch controls.
 
 ## Run locally

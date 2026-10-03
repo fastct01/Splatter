@@ -10,11 +10,11 @@ export const CLASSES = {
   splat:     {label:'Splat', r:30, mass:1.0, rate:3, speed:700, range:520, dmg:12, ink:3, splat:42, br:8},
   roller:    {label:'Roller', r:34, mass:1.4, rate:2, speed:700, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by driving', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage'},
   bomber:    {label:'Bomber', r:32, mass:1.2, rate:0.8, speed:900, range:650, dmg:35, ink:12, splat:110, br:12, bomb:true, desc:'Lobs ink bombs that burst into big splashes', spec:'Cluster', specLong:'Special: next bomb splits into 4'},
-  sprinkler: {label:'Sprinkler', r:30, mass:1.0, rate:2, speed:550, range:300, dmg:6, ink:9, splat:30, br:7, ring:6, desc:'Six nozzles spray ink in every direction', spec:'Spin', specLong:'Special: 3 s of non-stop spray'},
+  sprayer:   {label:'Sprayer', r:30, mass:1.0, rate:2, speed:600, range:340, dmg:7, ink:8, splat:30, br:7, spread:5, desc:'Spray gun: a 5-shot spread in front', spec:'Spin', specLong:'Special: 3 s of spinning spray'},
   liner:     {label:'Liner', r:28, mass:0.9, rate:1, speed:1500, range:1100, dmg:30, ink:10, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', spec:'Scope', specLong:'Special: zoom out for 4 s'}
 };
-export const CLASS_LIST = ['splat','roller','bomber','sprinkler','liner'];
-export const CLASS_KEYS = ['roller','bomber','sprinkler','liner'];
+export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner'];
+export const CLASS_KEYS = ['roller','bomber','sprayer','liner'];
 export const STAT_NAMES = ['Ink capacity','Bullet damage','Fire rate','Bullet range','Hull health','Move speed'];
 export const OBJ_TYPES = ['can','barrel','gold'];
 export const OBJ = {can:{hp:20,mass:2,xp:10,r:22,splat:50}, barrel:{hp:80,mass:6,xp:50,r:30,splat:120}, gold:{hp:200,mass:4,xp:200,r:26,splat:160}};
@@ -116,13 +116,13 @@ export function createSim(opts){
     const t = Object.assign({id:nextId++, name:'', human:false, slot:1, team:0, x:0, y:0, vx:0, vy:0, aim:0, aimDist:400, cls:'splat', r:30,
       level:1, xp:0, xpTotal:0, points:0, stats:[0,0,0,0,0,0], hp:100, ink:100, reload:0, specialCd:0, specialT:0, cluster:false,
       surface:0, sm:1, am:1, lastHit:-99, dead:false, respawnT:0, protect:2, flash:0, cellsPainted:0, paintAcc:0, splats:0, deaths:0,
-      trailAcc:0, spinA:0, spinReload:0, damagers:{}, killedBy:'', classPending:false, charge:false, spinning:false,
+      trailAcc:0, spinA:0, spinReload:0, moving:false, damagers:{}, killedBy:'', classPending:false, charge:false, spinning:false,
       ai:{think:0, wpT:0, strafe:Math.random()<0.5?1:-1, err:0, strafeT:0},
       input:{mx:0,my:0,fire:false,special:false}}, o);
     refresh(t);
     return t;
   }
-  function refresh(t){ t.mhp = maxHpOf(t.stats); t.icap = inkCapOf(t.stats); t.xpn = xpNeed(t.level); t.charge = t.cls === 'roller' && t.specialT > 0; t.spinning = t.cls === 'sprinkler' && t.specialT > 0; }
+  function refresh(t){ t.mhp = maxHpOf(t.stats); t.icap = inkCapOf(t.stats); t.xpn = xpNeed(t.level); t.charge = t.cls === 'roller' && t.specialT > 0; t.spinning = t.cls === 'sprayer' && t.specialT > 0; }
 
   function usedNames(){ return new Set(G.tanks.map(t => t.name)); }
   function botName(){ const used = usedNames(); const free = BOT_NAMES.filter(n => !used.has(n)); return free.length ? free[Math.floor(Math.random()*free.length)] : 'bot' + nextId; }
@@ -304,7 +304,7 @@ export function createSim(opts){
       const J = 0.35*900*0.15/C.mass; t.vx -= ca*J; t.vy -= sa*J;
       return;
     }
-    if (C.ring){ for (let k=0;k<6;k++) spawnBullet(t, t.aim + k*Math.PI/3, C, dm, rm); return; }
+    if (C.spread){ for (let k=0;k<C.spread;k++) spawnBullet(t, t.aim + (k - (C.spread-1)/2)*0.18, C, dm, rm); const J = 6/C.mass; t.vx -= ca*J; t.vy -= sa*J; return; }
     spawnBullet(t, t.aim, C, dm, rm);
     const J = C.dmg/100*C.speed*0.15/C.mass; t.vx -= ca*J; t.vy -= sa*J;
   }
@@ -319,7 +319,7 @@ export function createSim(opts){
     t.specialCd = 8;
     if (t.cls === 'roller') t.specialT = 1.5;
     else if (t.cls === 'bomber') t.cluster = true;
-    else if (t.cls === 'sprinkler'){ t.specialT = 3; t.spinA = t.aim; t.spinReload = 0; }
+    else if (t.cls === 'sprayer'){ t.specialT = 3; t.spinA = t.aim; t.spinReload = 0; }
     else if (t.cls === 'liner') t.specialT = 4;
   }
 
@@ -360,7 +360,7 @@ export function createSim(opts){
       if (t.cls === 'roller'){ mx = dx/d; my = dy/d; if (d < 320) spec = true; }
       if (t.hp < t.mhp*0.3 && t.cls !== 'roller'){ mx = -dx/d + (-dy/d)*ai.strafe*0.5; my = -dy/d + (dx/d)*ai.strafe*0.5; }
       fireOn = d < rng*1.05 && t.ink > C.ink + 4;
-      if ((t.cls === 'bomber' || (t.cls === 'sprinkler' && d < 320)) && Math.random() < 0.02) spec = true;
+      if ((t.cls === 'bomber' || (t.cls === 'sprayer' && d < 360)) && Math.random() < 0.02) spec = true;
     } else if (ai.obj && !ai.obj.dead){
       const o = ai.obj, dx = o.x - t.x, dy = o.y - t.y, d = Math.hypot(dx,dy) || 1;
       aim = Math.atan2(dy,dx) + ai.err*0.5; t.aimDist = d;
@@ -397,6 +397,7 @@ export function createSim(opts){
     const drag = Math.exp(-4*dt); t.vx *= drag; t.vy *= drag;
     const maxS = 260/Math.sqrt(C.mass)*t.sm*(1 + 0.04*t.stats[5])*(charge ? 1.6 : 1);
     let sp = Math.hypot(t.vx, t.vy); if (sp > maxS){ t.vx *= maxS/sp; t.vy *= maxS/sp; sp = maxS; }
+    t.moving = sp > 30;
     t.x += t.vx*dt; t.y += t.vy*dt;
     t.reload -= dt; t.specialCd -= dt; t.specialT -= dt; t.protect -= dt; t.flash -= dt;
     const cap = t.icap, moving = sp > 30, since = G.clock - t.lastHit;
@@ -407,7 +408,7 @@ export function createSim(opts){
     if (t.hp > t.mhp) t.hp = t.mhp;
     if (t.input.fire && t.reload <= 0) fire(t);
     if (t.input.special){ special(t); if (t.human) t.input.special = false; }
-    if (t.cls === 'sprinkler' && t.specialT > 0){
+    if (t.cls === 'sprayer' && t.specialT > 0){
       t.spinA += dt*6; t.spinReload -= dt;
       if (t.spinReload <= 0 && t.ink >= 3){ t.spinReload = 1/6; t.ink -= 3; for (let k=0;k<6;k++) spawnBullet(t, t.spinA + k*Math.PI/3, C, 1 + 0.08*t.stats[1], 1 + 0.08*t.stats[3]); }
     }
