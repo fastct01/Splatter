@@ -70,12 +70,14 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .stats-head span:last-child{font:500 13px var(--body);color:var(--muted)}
 #statRows{display:flex;flex-direction:column;gap:6px}
 .srow{display:grid;grid-template-columns:96px 1fr 36px;align-items:center;gap:8px;font-size:13px}
-.srow small{color:var(--muted)}
 .pips{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:2px}
 .pips i{height:9px;border-radius:2px;background:var(--floor)}
 .pips i.on{background:var(--ink)}
 .plus{width:36px;height:28px;border:none;border-radius:8px;background:var(--pink);color:var(--ink);font:800 18px var(--display);cursor:pointer;padding:0}
 .plus:disabled{background:var(--floor);color:var(--rock);cursor:default}
+.pause-card{width:360px;display:flex;flex-direction:column;gap:12px;text-align:center}
+.pause-card h2{font:800 32px var(--display);margin:0}
+.pause-card .sub{margin:0 0 4px}
 .leave{position:fixed;z-index:3;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:none}
 @media (max-width:520px){.card{padding:18px}.stats{width:220px}.srow{grid-template-columns:78px 1fr 32px;font-size:12px}}
 @media (prefers-reduced-motion:reduce){.btn:active,.mode:active{transform:none}}
@@ -134,6 +136,17 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
   </div>
 </div>
 
+<div id="pause" class="screen dim" hidden>
+  <div class="card pause-card" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+    <h2 id="pauseTitle">Paused</h2>
+    <p class="sub" id="pauseNote"></p>
+    <div class="play-row">
+      <button id="resume" class="btn primary">Resume</button>
+      <button id="quit" class="btn">Main menu</button>
+    </div>
+  </div>
+</div>
+
 <div id="stats" class="stats" hidden>
   <div class="stats-head"><span>Upgrade</span><span id="ptsLeft"></span></div>
   <div id="statRows"></div>
@@ -167,6 +180,7 @@ const pctx = paintCv.getContext('2d');
 const miniCv = document.createElement('canvas'); miniCv.width = 75; miniCv.height = 45;
 const miniCtx = miniCv.getContext('2d'); const miniImg = miniCtx.createImageData(75,45);
 const ownerColor = (mode, o) => mode === 'teams' ? (TCOL[o] || FLOOR) : PCOL[o];
+const tankColor = (mode, t) => mode === 'teams' ? TCOL[t.team] : PCOL[t.slot];
 function drawStamp(mode, x, y, r, owner, rot){
   const col = ownerColor(mode, owner);
   pctx.save(); pctx.translate(x*PS, y*PS); pctx.rotate(rot); const sc = r/44*PS; pctx.scale(sc,sc); pctx.fillStyle = col; pctx.fill(SPLAT); pctx.restore();
@@ -361,8 +375,8 @@ function readInput(me){
 setInterval(() => {
   const s = session;
   if (!s || s.kind !== 'net' || !s.joined || s.ws.readyState !== 1) return;
-  const playing = $('classes').hidden && $('results').hidden;
-  s.ws.send(JSON.stringify({t:'in', mx: playing ? +input.mx.toFixed(2) : 0, my: playing ? +input.my.toFixed(2) : 0, f: playing && input.fire ? 1 : 0, s: s.specialQ ? 1 : 0, a: +input.aim.toFixed(3), d: Math.round(input.aimDist)}));
+  const playing = $('classes').hidden && $('results').hidden && $('pause').hidden;
+  s.ws.send(JSON.stringify({t:'in', mx: playing ? +input.mx.toFixed(2) : 0, my: playing ? +input.my.toFixed(2) : 0, f: playing && input.fire ? 1 : 0, s: playing && s.specialQ ? 1 : 0, a: +input.aim.toFixed(3), d: Math.round(input.aimDist)}));
   s.specialQ = false;
 }, 50);
 function sendUpgrade(i){ const s = session; if (!s) return; if (s.kind === 'net') { if (s.ws.readyState === 1) s.ws.send(JSON.stringify({t:'up', i})); } else if (s.kind === 'local') s.sim.upgrade(s.myId, i); }
@@ -468,11 +482,12 @@ function drawPlayer(c, t, opts){
   // walk cycle: only the legs move (about 7 steps a second), offset per player so they don't march in sync
   const ph = clk*7 + t.id*0.37;
   const fr = t.moving ? 1 + (Math.floor(ph) % 2) : 0;
-  const e = getSprite(base, PCOL[t.slot], GUN_OF[t.cls] || 'blaster', opts.lvl !== undefined ? opts.lvl : inkLevel(t), t.flash > 0, fr);
+  const col = opts.color || PCOL[t.slot];
+  const e = getSprite(base, col, GUN_OF[t.cls] || 'blaster', opts.lvl !== undefined ? opts.lvl : inkLevel(t), t.flash > 0, fr);
   const S = sc*SPR_UNIT;
   c.save(); c.translate(t.x, t.y + SPR_FEET*sc); if (mirror) c.scale(-1, 1);
   if (e.ready) c.drawImage(e.img, -45*S, -84*S, 100*S, 100*S);
-  else { c.beginPath(); c.arc(0, -40*S, 18*S, 0, Math.PI*2); c.fillStyle = PCOL[t.slot]; c.fill(); c.lineWidth = 3; c.strokeStyle = INK; c.stroke(); }
+  else { c.beginPath(); c.arc(0, -40*S, 18*S, 0, Math.PI*2); c.fillStyle = col; c.fill(); c.lineWidth = 3; c.strokeStyle = INK; c.stroke(); }
   c.restore();
 }
 function drawWall(c, o){
@@ -547,7 +562,7 @@ function render(){
   for (const o of V.obstacles) if (o.x + o.w > x0 - 20 && o.x < x1 + 20 && o.y + o.h + 20 > y0 && o.y - WALL < y1 + 20) items.push({k:o.y + o.h, o});
   for (const t of V.tanks) if (vis(t)) items.push({k:t.y + SPR_FEET, t});
   items.sort((p, q) => p.k - q.k);
-  for (const it of items){ if (it.o) drawWall(ctx, it.o); else drawPlayer(ctx, it.t); }
+  for (const it of items){ if (it.o) drawWall(ctx, it.o); else drawPlayer(ctx, it.t, {color: tankColor(V.mode, it.t)}); }
   ctx.lineWidth = 2;
   for (const b of V.bullets){
     if (b.x < x0-30 || b.x > x1+30 || b.y < y0-40 || b.y > y1+30) continue;
@@ -665,7 +680,7 @@ function drawHUD(){
       const w = 176*u, h = (32 + 5*18 + 8)*u; ctx.fillStyle = WHITE; rr(ctx, x, y, w, h, 14*u); ctx.fill(); ctx.lineWidth = 4*u; ctx.strokeStyle = TCOL[team]; ctx.stroke();
       text(TNAME[team] + ' team', x + 12*u, y + 24*u, '800 ' + Math.round(14*u) + 'px ' + FD);
       V.tanks.filter(t => t.team === team).forEach((t,k) => { const ry = y + 31*u + k*18*u;
-        ctx.beginPath(); ctx.arc(x + 18*u, ry + 9*u, 6*u, 0, Math.PI*2); ctx.fillStyle = PCOL[t.slot]; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = INK; ctx.stroke();
+        ctx.beginPath(); ctx.arc(x + 18*u, ry + 9*u, 6*u, 0, Math.PI*2); ctx.fillStyle = tankColor(V.mode, t); ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = INK; ctx.stroke();
         let nm = t.name; ctx.font = (t.id === p.id ? '500 ' : '400 ') + Math.round(13*u) + 'px ' + FB; while (ctx.measureText(nm).width > w - 70*u && nm.length > 4) nm = nm.slice(0,-2) + '…';
         text(nm, x + 30*u, ry + 9*u, ctx.font, t.dead ? MUTED : INK, 'left', 'middle');
         text((t.human || session.kind === 'net') ? 'Lv ' + t.level : 'bot', x + w - 12*u, ry + 9*u, '400 ' + Math.round(12*u) + 'px ' + FB, MUTED, 'right', 'middle');
@@ -700,7 +715,7 @@ function drawHUD(){
   const mw = 150*u, mh = 90*u, mx = R - mw, my = B0 - mh;
   ctx.imageSmoothingEnabled = false; ctx.drawImage(miniCv, mx, my, mw, mh); ctx.imageSmoothingEnabled = true;
   ctx.lineWidth = Math.max(2,3*u); ctx.strokeStyle = INK; rr(ctx, mx, my, mw, mh, 10*u); ctx.stroke();
-  for (const t of V.tanks){ if (t.dead || (t.id !== p.id && !(V.mode === 'teams' && t.team === p.team))) continue; ctx.beginPath(); ctx.arc(mx + t.x/WW*mw, my + t.y/WH*mh, (t.id === p.id ? 4 : 2.5)*u, 0, Math.PI*2); ctx.fillStyle = t.id === p.id ? INK : PCOL[t.slot]; ctx.fill(); if (t.id === p.id){ ctx.lineWidth = 1.5; ctx.strokeStyle = WHITE; ctx.stroke(); } }
+  for (const t of V.tanks){ if (t.dead || (t.id !== p.id && !(V.mode === 'teams' && t.team === p.team))) continue; ctx.beginPath(); ctx.arc(mx + t.x/WW*mw, my + t.y/WH*mh, (t.id === p.id ? 4 : 2.5)*u, 0, Math.PI*2); ctx.fillStyle = t.id === p.id ? INK : tankColor(V.mode, t); ctx.fill(); if (t.id === p.id){ ctx.lineWidth = 1.5; ctx.strokeStyle = WHITE; ctx.stroke(); } }
   if (touchCtl.used && p.cls !== 'splat'){
     const sb = specialBtn(); ctx.beginPath(); ctx.arc(sb.x, sb.y, sb.r, 0, Math.PI*2); ctx.fillStyle = p.specialCd > 0 ? FLOOR : '#FF2D87'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
     if (p.specialCd > 0){ ctx.beginPath(); ctx.moveTo(sb.x, sb.y); ctx.arc(sb.x, sb.y, sb.r - 4, -Math.PI/2, -Math.PI/2 + Math.PI*2*(1 - p.specialCd/8)); ctx.closePath(); ctx.fillStyle = 'rgba(35,42,53,.18)'; ctx.fill(); }
@@ -720,11 +735,11 @@ function drawHUD(){
 
 /* ---------- DOM: stats panel ---------- */
 const statsBox = $('stats'), statRows = $('statRows');
-statRows.innerHTML = STAT_NAMES.map((n,i) => '<div class="srow"><span>' + n + ' <small>' + (i+1) + '</small></span><div class="pips">' + '<i></i>'.repeat(8) + '</div><button class="plus" id="up' + i + '" aria-label="Upgrade ' + n + '">+</button></div>').join('');
+statRows.innerHTML = STAT_NAMES.map((n,i) => '<div class="srow"><span>' + n + '</span><div class="pips">' + '<i></i>'.repeat(8) + '</div><button class="plus" id="up' + i + '" aria-label="Upgrade ' + n + '">+</button></div>').join('');
 for (let i=0;i<6;i++) $('up' + i).addEventListener('click', e => { e.stopPropagation(); sendUpgrade(i); });
 let statsKey = '';
 function syncStats(){
-  const p = session && session.kind !== 'demo' && $('results').hidden && V ? V.me : null;
+  const p = session && session.kind !== 'demo' && $('results').hidden && $('pause').hidden && V ? V.me : null;
   const show = !!(p && p.points > 0 && p.stats);
   if (statsBox.hidden === show) statsBox.hidden = !show;
   if (!show) return;
@@ -738,7 +753,7 @@ function syncStats(){
 const classGrid = $('classGrid');
 function openClassSelect(){
   classGrid.innerHTML = '';
-  const mySlot = V && V.me ? V.me.slot : 1;
+  const mySlot = V && V.me ? V.me.slot : 1, myCol = V && V.me ? tankColor(V.mode, V.me) : PCOL[mySlot];
   for (const k of CLASS_KEYS){
     const C = CLASSES[k];
     const b = document.createElement('button'); b.className = 'cls'; b.type = 'button';
@@ -749,9 +764,10 @@ function openClassSelect(){
     classGrid.appendChild(b);
     const g = c.getContext('2d');
     const ft = {x:140, y:120, aim:0, cls:k, slot:mySlot, flash:0, moving:false, id:0};
-    const draw = () => { g.clearRect(0, 0, 300, 220); drawPlayer(g, ft, {scale:1.3, lvl:3}); };
-    const e = getSprite('E', PCOL[mySlot], GUN_OF[k], 3, false); if (e.ready) draw(); else e.cbs.push(draw);
+    const draw = () => { g.clearRect(0, 0, 300, 220); drawPlayer(g, ft, {scale:1.3, lvl:3, color:myCol}); };
+    const e = getSprite('E', myCol, GUN_OF[k], 3, false); if (e.ready) draw(); else e.cbs.push(draw);
   }
+  $('pause').hidden = true;
   $('classes').hidden = false;
 }
 
@@ -784,7 +800,7 @@ function showResults(){
   const net = session.kind === 'net';
   $('again').hidden = net; $('nextNote').hidden = !net; $('menu').textContent = net ? 'Leave' : 'Main menu';
   if (net) session.endAt = performance.now() + 12000;
-  $('classes').hidden = true; statsBox.hidden = true;
+  $('classes').hidden = true; $('pause').hidden = true; statsBox.hidden = true;
   $('results').hidden = false;
   setTimeout(() => (net ? $('menu') : $('again')).focus(), 50);
 }
@@ -797,13 +813,25 @@ $('mFfa').addEventListener('click', () => setMode('ffa')); $('mTeams').addEventL
 const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 $('hint').textContent = coarse ? 'Left thumb moves. Right thumb aims and shoots. Tap the pink button for your class special.' : 'WASD to move · mouse to aim · click to shoot · Space for special · 1–6 to upgrade';
 function setStatus(t, err){ const el = $('status'); el.textContent = t || ''; el.classList.toggle('err', !!err); }
-function hideAllScreens(){ $('title').hidden = true; $('results').hidden = true; $('classes').hidden = true; mouse.down = false; touchCtl.left = touchCtl.right = null; }
-function toTitle(){ closeNet(); $('results').hidden = true; $('classes').hidden = true; statsBox.hidden = true; $('title').hidden = false; startLocal('demo', 'ffa'); refreshOnline(); }
+function hideAllScreens(){ $('pause').hidden = true; $('title').hidden = true; $('results').hidden = true; $('classes').hidden = true; mouse.down = false; touchCtl.left = touchCtl.right = null; }
+function toTitle(){ closeNet(); $('pause').hidden = true; $('results').hidden = true; $('classes').hidden = true; statsBox.hidden = true; $('title').hidden = false; startLocal('demo', 'ffa'); refreshOnline(); }
 $('playOnline').addEventListener('click', () => startNet(settings.mode));
 $('playLocal').addEventListener('click', () => { hideAllScreens(); setStatus(''); startLocal('local', settings.mode); statsKey = ''; });
 nick.addEventListener('keydown', e => { if (e.key === 'Enter') startNet(settings.mode); });
 $('again').addEventListener('click', () => { hideAllScreens(); startLocal('local', settings.mode); statsKey = ''; });
 $('menu').addEventListener('click', toTitle);
+function openPause(){
+  if (!inGame()) return;
+  keys.clear(); mouse.down = false; touchCtl.left = touchCtl.right = null;
+  const net = session.kind === 'net';
+  $('pauseNote').textContent = net ? 'Online matches keep going while you are paused. Your tank stands still.' : 'The match is frozen until you resume.';
+  $('quit').textContent = net ? 'Leave match' : 'Main menu';
+  $('pause').hidden = false;
+  $('resume').focus();
+}
+function closePause(){ $('pause').hidden = true; keys.clear(); }
+$('resume').addEventListener('click', closePause);
+$('quit').addEventListener('click', toTitle);
 async function refreshOnline(){
   if ($('title').hidden) return;
   try { const r = await fetch('/api/status', {cache:'no-store'}); if (!r.ok) return; const j = await r.json(); if (!$('status').classList.contains('err')) setStatus(j.players === 1 ? '1 player online' : j.players + ' players online'); } catch(e) {}
@@ -811,9 +839,10 @@ async function refreshOnline(){
 setInterval(refreshOnline, 8000);
 
 /* ---------- device input ---------- */
-const inGame = () => session && session.kind !== 'demo' && $('classes').hidden && $('results').hidden;
+const inGame = () => session && session.kind !== 'demo' && $('classes').hidden && $('results').hidden && $('pause').hidden;
 window.addEventListener('keydown', e => {
   if (e.target === nick) return;
+  if (e.code === 'Escape'){ if (!e.repeat){ if (!$('pause').hidden) closePause(); else openPause(); } return; }
   if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code) && inGame()) e.preventDefault();
   if (e.code === 'Space' && !e.repeat) queueSpecial();
   keys.add(e.code);
@@ -856,11 +885,12 @@ function frame(now){
     const me = s.myId ? s.sim.getTank(s.myId) : null;
     if (me){
       readInput(me);
-      const playing = $('classes').hidden && $('results').hidden;
-      s.sim.setInput(s.myId, {mx: playing ? input.mx : 0, my: playing ? input.my : 0, f: playing && input.fire, s: s.specialQ, a: input.aim, d: input.aimDist});
+      const playing = $('classes').hidden && $('results').hidden && $('pause').hidden;
+      s.sim.setInput(s.myId, {mx: playing ? input.mx : 0, my: playing ? input.my : 0, f: playing && input.fire, s: playing && s.specialQ, a: input.aim, d: input.aimDist});
       s.specialQ = false;
     }
-    s.acc += el; let n = 0;
+    if (s.kind === 'local' && !$('pause').hidden) s.acc = 0; else s.acc += el;
+    let n = 0;
     while (s.acc >= DT && n < 5){ s.sim.step(DT, s.kind === 'demo'); s.acc -= DT; n++; }
     if (n === 5) s.acc = 0;
   }
