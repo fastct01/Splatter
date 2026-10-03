@@ -464,13 +464,12 @@ function drawPlayer(c, t, opts){
   const sc = opts.scale || 1;
   const facing = opts.facing !== undefined ? opts.facing : (t.spinning ? t.spinA : t.aim);
   const dir = dirOf(facing), base = MIRROR[dir] || dir, mirror = !!MIRROR[dir];
-  // walk cycle: about 7 steps a second, offset per player so they don't march in sync
+  // walk cycle: only the legs move (about 7 steps a second), offset per player so they don't march in sync
   const ph = clk*7 + t.id*0.37;
   const fr = t.moving ? 1 + (Math.floor(ph) % 2) : 0;
-  const bob = t.moving ? -Math.abs(Math.sin(Math.PI*ph))*3 : 0;
   const e = getSprite(base, PCOL[t.slot], GUN_OF[t.cls] || 'blaster', opts.lvl !== undefined ? opts.lvl : inkLevel(t), t.flash > 0, fr);
   const S = sc*SPR_UNIT;
-  c.save(); c.translate(t.x, t.y + SPR_FEET*sc + bob); if (mirror) c.scale(-1, 1);
+  c.save(); c.translate(t.x, t.y + SPR_FEET*sc); if (mirror) c.scale(-1, 1);
   if (e.ready) c.drawImage(e.img, -45*S, -84*S, 100*S, 100*S);
   else { c.beginPath(); c.arc(0, -40*S, 18*S, 0, Math.PI*2); c.fillStyle = PCOL[t.slot]; c.fill(); c.lineWidth = 3; c.strokeStyle = INK; c.stroke(); }
   c.restore();
