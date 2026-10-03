@@ -178,8 +178,6 @@ function saveSettings(){ try { localStorage.setItem('splatter-settings', JSON.st
 /* ---------- paint layer ---------- */
 const paintCv = document.createElement('canvas'); paintCv.width = WW*PS; paintCv.height = WH*PS;
 const pctx = paintCv.getContext('2d');
-const miniCv = document.createElement('canvas'); miniCv.width = 75; miniCv.height = 45;
-const miniCtx = miniCv.getContext('2d'); const miniImg = miniCtx.createImageData(75,45);
 const ownerColor = (mode, o) => mode === 'teams' ? (TCOL[o] || FLOOR) : PCOL[o];
 const tankColor = (mode, t) => mode === 'teams' ? TCOL[t.team] : PCOL[t.slot];
 function drawStamp(mode, x, y, r, owner, rot){
@@ -594,18 +592,7 @@ function shares(){
   else for (const t of V.tanks) out.push({owner:t.slot, name:t.name, color:PCOL[t.slot], v:V.counts[t.slot]/P, tank:t});
   return out;
 }
-let miniT = 0;
-function updateMini(){
-  const d = miniImg.data, col = [];
-  for (let o=0;o<16;o++) col[o] = o === 0 ? [228,226,221] : rgbOf(ownerColor(V.mode, o));
-  for (let j=0;j<45;j++) for (let i=0;i<75;i++){
-    const v = V.grid[(j*4+2)*GW + i*4+2], p = (j*75+i)*4;
-    const c = v === 255 ? [138,151,166] : col[v] || col[0];
-    d[p] = c[0]; d[p+1] = c[1]; d[p+2] = c[2]; d[p+3] = 255;
-  }
-  miniCtx.putImageData(miniImg, 0, 0);
-}
-function specialBtn(){ const u = clamp(Math.min(VW,VH)/720, 0.62, 1); return {x: VW - 16 - SAFE.r - 150*u - 50, y: VH - 16 - SAFE.b - 45*u, r: 40}; }
+function specialBtn(){ const u = clamp(Math.min(VW,VH)/720, 0.62, 1); return {x: VW - 16 - SAFE.r - 50, y: VH - 16 - SAFE.b - 45*u, r: 40}; }
 
 function drawHUD(){
   const p = V.me, u = clamp(Math.min(VW,VH)/720, 0.62, 1), narrow = VW < 760, merged = VW < 900;
@@ -690,21 +677,25 @@ function drawHUD(){
     const ch = 138*u; card(1, R - 176*u, T0 + 92*u); card(2, R - 176*u, T0 + 92*u + ch); card(3, R - 176*u, T0 + 92*u + 2*ch);
   }
   const C = CLASSES[p.cls], cap = p.icap || 100;
-  const iw = (merged ? 210 : 270)*u, ih = (merged ? 104 : 84)*u, ix = L, iy = B0 - ih;
+  const iw = (merged ? 210 : 270)*u, ih = (merged ? 140 : 120)*u, ix = L, iy = B0 - ih, hy = 36*u;
   panel(ix, iy, iw, ih, u);
-  const fs = '500 ' + Math.round(14*u) + 'px ' + FB;
-  text('Ink tank', ix + 14*u, iy + 22*u, fs);
-  text(Math.round(p.ink/cap*100) + '%', ix + iw - 14*u, iy + 22*u, fs, INK, 'right');
+  const fs = '500 ' + Math.round(14*u) + 'px ' + FB, hf = clamp((p.hp || 0)/(p.mhp || 100), 0, 1);
+  text('Health', ix + 14*u, iy + 22*u, fs);
+  text(Math.ceil(p.hp || 0) + ' / ' + Math.round(p.mhp || 100), ix + iw - 14*u, iy + 22*u, fs, INK, 'right');
   ctx.fillStyle = FLOOR; rr(ctx, ix + 14*u, iy + 32*u, iw - 28*u, 12*u, 6*u); ctx.fill();
-  ctx.fillStyle = ownerColor(V.mode, V.mode === 'teams' ? p.team : p.slot); rr(ctx, ix + 14*u, iy + 32*u, (iw - 28*u)*clamp(p.ink/cap,0,1), 12*u, 6*u); ctx.fill();
+  ctx.fillStyle = hf < 0.3 ? '#FF3B3B' : '#2DBE5A'; rr(ctx, ix + 14*u, iy + 32*u, (iw - 28*u)*hf, 12*u, 6*u); ctx.fill();
+  text('Ink tank', ix + 14*u, iy + hy + 22*u, fs);
+  text(Math.round(p.ink/cap*100) + '%', ix + iw - 14*u, iy + hy + 22*u, fs, INK, 'right');
+  ctx.fillStyle = FLOOR; rr(ctx, ix + 14*u, iy + hy + 32*u, iw - 28*u, 12*u, 6*u); ctx.fill();
+  ctx.fillStyle = ownerColor(V.mode, V.mode === 'teams' ? p.team : p.slot); rr(ctx, ix + 14*u, iy + hy + 32*u, (iw - 28*u)*clamp(p.ink/cap,0,1), 12*u, 6*u); ctx.fill();
   const hint = p.surface === 1 ? 'On your colour: +40% speed · regen on' : p.surface === -1 ? 'On enemy paint: slowed' : 'Neutral floor';
-  text(merged && p.surface === 1 ? 'Your colour: fast + regen' : hint, ix + 14*u, iy + 64*u, '400 ' + Math.round(13*u) + 'px ' + FB, p.surface === -1 ? ALERT : MUTED);
+  text(merged && p.surface === 1 ? 'Your colour: fast + regen' : hint, ix + 14*u, iy + hy + 64*u, '400 ' + Math.round(13*u) + 'px ' + FB, p.surface === -1 ? ALERT : MUTED);
   const lvlLine = 'Level ' + p.level + ' · ' + C.label;
   const xpFrac = p.level >= 30 ? 1 : clamp(p.xp/(p.xpn || 1), 0, 1);
   if (merged){
-    text(lvlLine, ix + 14*u, iy + 84*u, '500 ' + Math.round(13*u) + 'px ' + FD);
-    ctx.fillStyle = FLOOR; rr(ctx, ix + 14*u, iy + 90*u, iw - 28*u, 6*u, 3*u); ctx.fill();
-    ctx.fillStyle = INK; rr(ctx, ix + 14*u, iy + 90*u, (iw - 28*u)*xpFrac, 6*u, 3*u); ctx.fill();
+    text(lvlLine, ix + 14*u, iy + hy + 84*u, '500 ' + Math.round(13*u) + 'px ' + FD);
+    ctx.fillStyle = FLOOR; rr(ctx, ix + 14*u, iy + hy + 90*u, iw - 28*u, 6*u, 3*u); ctx.fill();
+    ctx.fillStyle = INK; rr(ctx, ix + 14*u, iy + hy + 90*u, (iw - 28*u)*xpFrac, 6*u, 3*u); ctx.fill();
   } else {
     const bw = Math.max(120, Math.min(420*u, VW - 2*(Math.max(iw, 150*u) + 56))), bx = cx - bw/2, by = B0 - 12*u;
     text(lvlLine, cx, by - 10*u, '500 ' + Math.round(16*u) + 'px ' + FD, INK, 'center');
@@ -712,11 +703,6 @@ function drawHUD(){
     ctx.fillStyle = INK; rr(ctx, bx, by, bw*xpFrac, 12*u, 6*u); ctx.fill();
   }
   statsBox.style.bottom = (VH - iy + 10) + 'px';
-  miniT -= frameDt; if (miniT <= 0){ miniT = 0.25; updateMini(); }
-  const mw = 150*u, mh = 90*u, mx = R - mw, my = B0 - mh;
-  ctx.imageSmoothingEnabled = false; ctx.drawImage(miniCv, mx, my, mw, mh); ctx.imageSmoothingEnabled = true;
-  ctx.lineWidth = Math.max(2,3*u); ctx.strokeStyle = INK; rr(ctx, mx, my, mw, mh, 10*u); ctx.stroke();
-  for (const t of V.tanks){ if (t.dead || (t.id !== p.id && !(V.mode === 'teams' && t.team === p.team))) continue; ctx.beginPath(); ctx.arc(mx + t.x/WW*mw, my + t.y/WH*mh, (t.id === p.id ? 4 : 2.5)*u, 0, Math.PI*2); ctx.fillStyle = t.id === p.id ? INK : tankColor(V.mode, t); ctx.fill(); if (t.id === p.id){ ctx.lineWidth = 1.5; ctx.strokeStyle = WHITE; ctx.stroke(); } }
   if (touchCtl.used && p.cls !== 'splat'){
     const sb = specialBtn(); ctx.beginPath(); ctx.arc(sb.x, sb.y, sb.r, 0, Math.PI*2); ctx.fillStyle = p.specialCd > 0 ? FLOOR : '#FF2D87'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
     if (p.specialCd > 0){ ctx.beginPath(); ctx.moveTo(sb.x, sb.y); ctx.arc(sb.x, sb.y, sb.r - 4, -Math.PI/2, -Math.PI/2 + Math.PI*2*(1 - p.specialCd/8)); ctx.closePath(); ctx.fillStyle = 'rgba(35,42,53,.18)'; ctx.fill(); }
