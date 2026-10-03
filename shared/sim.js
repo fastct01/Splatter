@@ -7,14 +7,19 @@ export const PNAME = ['','Pink','Red','Orange','Amber','Yellow','Lime','Green','
 export const TCOL = [null,'#2D8CFF','#FF8A1F','#FFD21F'];
 export const TNAME = ['','Blue','Orange','Yellow'];
 export const CLASSES = {
-  splat:     {label:'Splat', r:30, mass:1.0, rate:3, speed:700, range:520, dmg:12, ink:3, splat:42, br:8},
-  roller:    {label:'Roller', r:34, mass:1.4, rate:2, speed:700, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by driving', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage'},
-  bomber:    {label:'Bomber', r:32, mass:1.2, rate:0.8, speed:900, range:650, dmg:35, ink:12, splat:110, br:12, bomb:true, desc:'Lobs ink bombs that burst into big splashes', spec:'Cluster', specLong:'Special: next bomb splits into 4'},
-  sprayer:   {label:'Sprayer', r:30, mass:1.0, rate:2, speed:600, range:340, dmg:7, ink:8, splat:30, br:7, spread:5, desc:'Spray gun: a 5-shot spread in front', spec:'Spin', specLong:'Special: 3 s of spinning spray'},
-  liner:     {label:'Liner', r:28, mass:0.9, rate:1, speed:1500, range:1100, dmg:30, ink:10, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', spec:'Scope', specLong:'Special: zoom out for 4 s'}
+  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, rate:3, speed:700, range:520, dmg:12, ink:3, splat:42, br:8, desc:'All-rounder: steady shots at medium range', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
+               ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
+  roller:    {label:'Roller', r:34, mass:1.4, hp:120, rate:2, speed:700, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by driving', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
+               ups:[['trail','Roller width'],['ram','Ram damage'],['scd','Charge reload'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
+  bomber:    {label:'Bomber', r:32, mass:1.2, hp:100, rate:0.8, speed:900, range:650, dmg:35, ink:12, splat:110, br:12, bomb:true, desc:'Lobs ink bombs that burst into big splashes', spec:'Cluster', specLong:'Special: next bomb splits into 4',
+               ups:[['blast','Blast radius'],['dmg','Bomb damage'],['rate','Reload'],['range','Throw range'],['ink','Ink tank'],['hp','Health']]},
+  sprayer:   {label:'Sprayer', r:30, mass:1.0, hp:100, rate:2, speed:600, range:340, dmg:7, ink:8, splat:30, br:7, spread:5, desc:'Spray gun: a 5-shot spread in front', spec:'Spin', specLong:'Special: 3 s of spinning spray',
+               ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
+  liner:     {label:'Liner', r:28, mass:0.9, hp:90, rate:1, speed:1500, range:1100, dmg:30, ink:10, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
+               ups:[['dmg','Shot damage'],['range','Range'],['line','Line width'],['rate','Reload'],['ink','Ink tank'],['speed','Move speed']]}
 };
 export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner'];
-export const CLASS_KEYS = ['roller','bomber','sprayer','liner'];
+export const CLASS_KEYS = ['splat','roller','bomber','liner'];   // classes players can pick at the start
 export const STAT_NAMES = ['Ink capacity','Bullet damage','Fire rate','Bullet range','Hull health','Move speed'];
 export const OBJ_TYPES = ['can','barrel','gold','triangle'];
 export const OBJ = {can:{hp:35,mass:2,xp:10,r:22,splat:50}, barrel:{hp:110,mass:6,xp:50,r:30,splat:120}, gold:{hp:200,mass:4,xp:200,r:26,splat:160}, triangle:{hp:75,mass:3,xp:35,r:26,splat:75}};
@@ -24,10 +29,12 @@ export function randomObjectType(){ const r = Math.random(); return r < TRIANGLE
 const BOT_NAMES = ['blue_wave','limelight','tangerine','sunny','purp','aqua','redline','honey','moss','minty','skyhigh','indigo','magenta','cocoa','splatcat','drip','smudge','inky','roller_rex','blotto','gloss','tint'];
 
 export const xpNeed = n => Math.round(19*Math.pow(n,1.4));
-export const CLASS_LEVEL = 10;     // level at which a player picks a class
 export const XP_PER_POINT = 50, UPGRADE_COST = 10;
-export const maxHpOf = stats => 100 + 12*stats[4];
-export const inkCapOf = stats => 100*(1 + 0.12*stats[0]);
+// points a player has put into one of their class's upgrades
+export function up(t, key){ const u = CLASSES[t.cls].ups; for (let i=0;i<u.length;i++) if (u[i][0] === key) return t.stats[i] || 0; return 0; }
+export const maxHpOf = t => (CLASSES[t.cls].hp || 100) + (t.cls === 'roller' ? 15 : 12)*up(t, 'hp');
+export const inkCapOf = t => 100*(1 + 0.12*up(t, 'ink'));
+export const randomClass = () => CLASS_KEYS[Math.floor(Math.random()*CLASS_KEYS.length)];
 export const START_INK = 0.4;
 const TAU = Math.PI*2;
 const rand = (a,b) => a + Math.random()*(b-a);
@@ -128,7 +135,7 @@ export function createSim(opts){
     refresh(t);
     return t;
   }
-  function refresh(t){ t.mhp = maxHpOf(t.stats); t.icap = inkCapOf(t.stats); t.xpn = xpNeed(t.level); t.charge = t.cls === 'roller' && t.specialT > 0; t.spinning = t.cls === 'sprayer' && t.specialT > 0; }
+  function refresh(t){ t.mhp = maxHpOf(t); t.icap = inkCapOf(t); t.xpn = xpNeed(t.level); t.charge = t.cls === 'roller' && t.specialT > 0; t.spinning = t.cls === 'sprayer' && t.specialT > 0; }
 
   function usedNames(){ return new Set(G.tanks.map(t => t.name)); }
   function botName(){ const used = usedNames(); const free = BOT_NAMES.filter(n => !used.has(n)); return free.length ? free[Math.floor(Math.random()*free.length)] : 'bot' + nextId; }
@@ -138,7 +145,7 @@ export function createSim(opts){
     while (useBots && G.tanks.length < MAX_PLAYERS){
       let team = 0;
       if (mode === 'teams'){ const c = [0,0,0,0]; for (const t of G.tanks) c[t.team]++; team = [1,2,3].find(k => c[k] < 5); }
-      const t = makeTank({name:botName(), slot:freeSlots()[0], team});
+      const t = makeTank({name:botName(), slot:freeSlots()[0], team, cls:randomClass()});
       G.tanks.push(t); spawnTank(t);
     }
   }
@@ -150,7 +157,7 @@ export function createSim(opts){
     G.counts[0] = G.paintable;
     G.time = MATCH; G.clock = 0; G.over = false; G.bullets = []; G.bombs = []; G.objects = []; G.goldT = 25;
     const humans = G.tanks.filter(t => t.human);
-    G.tanks = humans.map(h => makeTank({id:h.id, name:h.name, human:true, slot:h.slot, team:h.team}));
+    G.tanks = humans.map(h => makeTank({id:h.id, name:h.name, human:true, slot:h.slot, team:h.team, cls:h.nextCls || h.cls}));
     for (const t of G.tanks) spawnTank(t);
     fillBots();
     for (let k=0;k<40;k++) spawnObject(randomObjectType());
@@ -162,7 +169,7 @@ export function createSim(opts){
       if (G.tanks.length >= MAX_PLAYERS) return null;
       let team = 0;
       if (mode === 'teams'){ const c = [0,0,0,0]; for (const t of G.tanks) c[t.team]++; team = shuffle([1,2,3]).sort((a,b) => c[a] - c[b])[0]; if (c[team] >= 5) return null; }
-      const t = makeTank({name:o.name || 'Player', human:true, slot:freeSlots()[0], team});
+      const t = makeTank({name:o.name || 'Player', human:true, slot:freeSlots()[0], team, cls: CLASS_KEYS.includes(o.cls) ? o.cls : 'splat'});
       G.tanks.push(t); spawnTank(t);
       onEvent({k:'roster'});
       return t;
@@ -179,7 +186,7 @@ export function createSim(opts){
     } else {
       victim = bots[Math.floor(Math.random()*bots.length)];
     }
-    const t = makeTank({name:o.name || 'Player', human:true, slot:victim.slot, team:victim.team});
+    const t = makeTank({name:o.name || 'Player', human:true, slot:victim.slot, team:victim.team, cls: CLASS_KEYS.includes(o.cls) ? o.cls : 'splat'});
     G.tanks[G.tanks.indexOf(victim)] = t;
     spawnTank(t);
     onEvent({k:'roster'});
@@ -189,7 +196,7 @@ export function createSim(opts){
     const i = G.tanks.findIndex(t => t.id === id); if (i < 0) return;
     if (!useBots){ G.tanks.splice(i, 1); onEvent({k:'roster'}); return; }
     const h = G.tanks[i];
-    const b = makeTank({name:'', slot:h.slot, team:h.team});
+    const b = makeTank({name:'', slot:h.slot, team:h.team, cls:randomClass()});
     G.tanks[i] = b; b.name = botName(); spawnTank(b);
     onEvent({k:'roster'});
   }
@@ -203,7 +210,8 @@ export function createSim(opts){
     if (Number.isFinite(+inp.d)) t.aimDist = clamp(+inp.d, 0, 3000);
   }
   function upgradeId(id, i){ const t = getTank(id); if (t && Number.isInteger(i) && i >= 0 && i < 6) upgrade(t, i); }
-  function pickClass(id, k){ const t = getTank(id); if (t && t.cls === 'splat' && t.level >= CLASS_LEVEL && CLASS_KEYS.includes(k)) setClass(t, k); }
+  // class changes apply from the next match
+  function pickClass(id, k){ const t = getTank(id); if (t && CLASS_KEYS.includes(k)) t.nextCls = k; }
 
   function spawnTank(t){
     t.r = CLASSES[t.cls].r;
@@ -259,16 +267,19 @@ export function createSim(opts){
     while (t.level < 30 && t.xp >= xpNeed(t.level)){
       t.xp -= xpNeed(t.level); t.level++;
       if (t.human) onEvent({k:'lvl', id:t.id, lv:t.level});
-      if (t.level === CLASS_LEVEL && t.cls === 'splat'){
-        if (t.human){ t.classPending = true; t.protect = Math.max(t.protect, 5); onEvent({k:'cls', id:t.id}); }
-        else setClass(t, CLASS_KEYS[Math.floor(Math.random()*4)]);
-      }
     }
     if (t.level >= 30) t.xp = Math.min(t.xp, xpNeed(30));
     t.xpn = xpNeed(t.level);
   }
   function setClass(t, k){ t.cls = k; t.r = CLASSES[k].r; t.classPending = false; t.specialCd = 2; }
-  function upgrade(t, i){ if (t.points >= UPGRADE_COST && t.stats[i] < 8){ t.stats[i]++; t.points -= UPGRADE_COST; if (i===4) t.hp += 12; if (i===0) t.ink += 12; refresh(t); } }
+  function upgrade(t, i){
+    if (t.points < UPGRADE_COST || t.stats[i] >= 8) return;
+    const key = CLASSES[t.cls].ups[i][0];
+    t.stats[i]++; t.points -= UPGRADE_COST;
+    if (key === 'hp') t.hp += t.cls === 'roller' ? 15 : 12;
+    if (key === 'ink') t.ink += 12;
+    refresh(t);
+  }
 
   function damage(t, amt, src){
     if (t.dead || t.protect > 0 || amt <= 0) return;
@@ -297,12 +308,12 @@ export function createSim(opts){
     const C = CLASSES[t.cls];
     if (t.ink < C.ink) return;
     t.ink -= C.ink;
-    t.reload = 1/C.rate*(1 - 0.06*t.stats[2]);
-    const dm = 1 + 0.08*t.stats[1], rm = 1 + 0.08*t.stats[3];
+    t.reload = 1/C.rate*(1 - 0.07*up(t, 'rate'))*(t.cls === 'splat' && t.specialT > 0 ? 0.5 : 1);
+    const dm = 1 + 0.10*up(t, 'dmg'), rm = 1 + 0.08*up(t, 'range');
     const ca = Math.cos(t.aim), sa = Math.sin(t.aim);
     if (C.bomb){
       const d = clamp(t.aimDist, 120, C.range*rm);
-      G.bombs.push({id:nextB++, x0:t.x + ca*t.r, y0:t.y + sa*t.r, x1:clamp(t.x + ca*d, 30, WW-30), y1:clamp(t.y + sa*d, 30, WH-30), t:0, T:0.6, R:110, dmg:C.dmg*dm, cluster:t.cluster, owner:t, po:paintOwner(t)});
+      G.bombs.push({id:nextB++, x0:t.x + ca*t.r, y0:t.y + sa*t.r, x1:clamp(t.x + ca*d, 30, WW-30), y1:clamp(t.y + sa*d, 30, WH-30), t:0, T:0.6, R:110*(1 + 0.10*up(t, 'blast')), dmg:C.dmg*dm, cluster:t.cluster, owner:t, po:paintOwner(t)});
       t.cluster = false;
       const J = 0.35*900*0.15/C.mass; t.vx -= ca*J; t.vy -= sa*J;
       return;
@@ -315,11 +326,12 @@ export function createSim(opts){
     const ca = Math.cos(a), sa = Math.sin(a), m = t.r*1.4;
     const x = t.x + ca*m, y = t.y + sa*m;
     G.bullets.push({id:nextB++, x, y, px:x, py:y, vx:ca*C.speed + t.vx*0.3, vy:sa*C.speed + t.vy*0.3, r:C.br, dmg:C.dmg*dm, hp:C.dmg*dm,
-      owner:t, po:paintOwner(t), dist:0, range:C.range*rm, splat:C.splat, line:!!C.line, drop:0, dead:false});
+      owner:t, po:paintOwner(t), dist:0, range:C.range*rm, splat:C.splat, line:!!C.line, lineR:11*(1 + 0.12*up(t, 'line')), drop:0, dead:false});
   }
   function special(t){
-    if (t.cls === 'splat' || t.specialCd > 0) return;
-    t.specialCd = 8;
+    if (t.specialCd > 0) return;
+    t.specialCd = 8*(1 - 0.10*up(t, 'scd'));
+    if (t.cls === 'splat') t.specialT = 2;
     if (t.cls === 'roller') t.specialT = 1.5;
     else if (t.cls === 'bomber') t.cluster = true;
     else if (t.cls === 'sprayer'){ t.specialT = 3; t.spinA = t.aim; t.spinReload = 0; }
@@ -328,7 +340,7 @@ export function createSim(opts){
 
   function botThink(t, dt){
     const ai = t.ai, C = CLASSES[t.cls], po = paintOwner(t);
-    const rng = C.range*(1 + 0.08*t.stats[3]);
+    const rng = C.range*(1 + 0.08*up(t, 'range'));
     ai.think -= dt; ai.wpT -= dt; ai.strafeT -= dt;
     if (ai.strafeT <= 0){ ai.strafe = -ai.strafe; ai.strafeT = rand(1.5,4); }
     if (ai.think <= 0){
@@ -363,7 +375,7 @@ export function createSim(opts){
       if (t.cls === 'roller'){ mx = dx/d; my = dy/d; if (d < 320) spec = true; }
       if (t.hp < t.mhp*0.3 && t.cls !== 'roller'){ mx = -dx/d + (-dy/d)*ai.strafe*0.5; my = -dy/d + (dx/d)*ai.strafe*0.5; }
       fireOn = d < rng*1.05 && t.ink > C.ink + 4;
-      if ((t.cls === 'bomber' || (t.cls === 'sprayer' && d < 360)) && Math.random() < 0.02) spec = true;
+      if ((t.cls === 'bomber' || t.cls === 'splat' || (t.cls === 'sprayer' && d < 360)) && Math.random() < 0.02) spec = true;
     } else if (ai.obj && !ai.obj.dead){
       const o = ai.obj, dx = o.x - t.x, dy = o.y - t.y, d = Math.hypot(dx,dy) || 1;
       aim = Math.atan2(dy,dx) + ai.err*0.5; t.aimDist = d;
@@ -398,7 +410,7 @@ export function createSim(opts){
     const acc = 1400*t.am*(charge ? 1.6 : 1);
     t.vx += mx*acc*dt; t.vy += my*acc*dt;
     const drag = Math.exp(-4*dt); t.vx *= drag; t.vy *= drag;
-    const maxS = 260/Math.sqrt(C.mass)*t.sm*(1 + 0.04*t.stats[5])*(charge ? 1.6 : 1);
+    const maxS = 260/Math.sqrt(C.mass)*t.sm*(1 + (t.cls === 'roller' ? 0.05 : 0.04)*up(t, 'speed'))*(charge ? 1.6 : 1);
     let sp = Math.hypot(t.vx, t.vy); if (sp > maxS){ t.vx *= maxS/sp; t.vy *= maxS/sp; sp = maxS; }
     t.moving = sp > 30;
     t.x += t.vx*dt; t.y += t.vy*dt;
@@ -413,11 +425,11 @@ export function createSim(opts){
     if (t.input.special){ special(t); if (t.human) t.input.special = false; }
     if (t.cls === 'sprayer' && t.specialT > 0){
       t.spinA += dt*6; t.spinReload -= dt;
-      if (t.spinReload <= 0 && t.ink >= 3){ t.spinReload = 1/6; t.ink -= 3; for (let k=0;k<6;k++) spawnBullet(t, t.spinA + k*Math.PI/3, C, 1 + 0.08*t.stats[1], 1 + 0.08*t.stats[3]); }
+      if (t.spinReload <= 0 && t.ink >= 3){ t.spinReload = 1/6; t.ink -= 3; for (let k=0;k<6;k++) spawnBullet(t, t.spinA + k*Math.PI/3, C, 1 + 0.10*up(t, 'dmg'), 1 + 0.08*up(t, 'range')); }
     }
     if (t.cls === 'roller' && moving && t.ink > 0){
       t.trailAcc += sp*dt;
-      while (t.trailAcc >= 12){ t.trailAcc -= 12; t.ink -= 0.6; stamp(t.x - t.vx/sp*t.r*0.3, t.y - t.vy/sp*t.r*0.3, 35, po, t); }
+      while (t.trailAcc >= 12){ t.trailAcc -= 12; t.ink -= 0.6; stamp(t.x - t.vx/sp*t.r*0.3, t.y - t.vy/sp*t.r*0.3, 35*(1 + 0.12*up(t, 'trail')), po, t); }
     }
     refresh(t);
   }
@@ -451,7 +463,7 @@ export function createSim(opts){
       if (b.dead) continue;
       b.px = b.x; b.py = b.y; b.x += b.vx*dt; b.y += b.vy*dt;
       const step = Math.hypot(b.vx, b.vy)*dt; b.dist += step; b.drop += step;
-      if (b.line){ while (b.drop >= 10){ b.drop -= 10; const f = 1 - b.drop/step; stamp(b.px + (b.x-b.px)*f, b.py + (b.y-b.py)*f, 11, b.po, b.owner); } }
+      if (b.line){ while (b.drop >= 10){ b.drop -= 10; const f = 1 - b.drop/step; stamp(b.px + (b.x-b.px)*f, b.py + (b.y-b.py)*f, b.lineR, b.po, b.owner); } }
       else if (b.drop >= 130){ b.drop -= 130; stamp(b.x, b.y, 7, b.po, b.owner); }
       if (b.x < 0 || b.y < 0 || b.x > WW || b.y > WH){ b.dead = true; stamp(clamp(b.x,14,WW-14), clamp(b.y,14,WH-14), 26, b.po, b.owner); continue; }
       if (inObstacle(b.x, b.y, 0)){ b.dead = true; const a = Math.atan2(b.vy,b.vx); stamp(b.px - Math.cos(a)*8, b.py - Math.sin(a)*8, 26, b.po, b.owner); continue; }
@@ -503,7 +515,7 @@ export function createSim(opts){
       stamp(x, y, b.R, b.po, b.owner);
       onEvent({k:'ring', x, y, r:b.R, o:b.po});
       for (const t of G.tanks) if (t.human && !t.dead && Math.hypot(t.x-x, t.y-y) < 200) onEvent({k:'shake', id:t.id, s:0.12});
-      if (b.cluster){ for (let k=0;k<4;k++){ const a = k*Math.PI/2 + Math.PI/4; G.bombs.push({id:nextB++, x0:x, y0:y, x1:clamp(x + Math.cos(a)*140, 30, WW-30), y1:clamp(y + Math.sin(a)*140, 30, WH-30), t:0, T:0.4, R:70, dmg:20, cluster:false, owner:b.owner, po:b.po}); } }
+      if (b.cluster){ for (let k=0;k<4;k++){ const a = k*Math.PI/2 + Math.PI/4; G.bombs.push({id:nextB++, x0:x, y0:y, x1:clamp(x + Math.cos(a)*140, 30, WW-30), y1:clamp(y + Math.sin(a)*140, 30, WH-30), t:0, T:0.4, R:70*(1 + 0.10*up(b.owner, 'blast')), dmg:20*(1 + 0.10*up(b.owner, 'dmg')), cluster:false, owner:b.owner, po:b.po}); } }
     }
     G.bombs = G.bombs.filter(b => !b.done);
   }
@@ -552,7 +564,7 @@ export function createSim(opts){
         const close = -vn, J = -(1 + 0.4)*vn/(ia + ib);
         a.vx -= J*ia*nx; a.vy -= J*ia*ny; b.vx += J*ib*nx; b.vy += J*ib*ny;
         if (close > 150){
-          const ca = a.cls === 'roller' && a.specialT > 0 ? 2 : 1, cb = b.cls === 'roller' && b.specialT > 0 ? 2 : 1;
+          const ca = (a.cls === 'roller' && a.specialT > 0 ? 2 : 1)*(1 + 0.15*up(a, 'ram')), cb = (b.cls === 'roller' && b.specialT > 0 ? 2 : 1)*(1 + 0.15*up(b, 'ram'));
           damage(a, 0.08*close*mb*cb, b); damage(b, 0.08*close*ma*ca, a);
         }
       }

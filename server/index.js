@@ -46,8 +46,8 @@ class Room {
     return {type:'match', you:c.tankId, mode:this.mode, obstacles:G.obstacles, grid:encodeGrid(G.grid), counts:Array.from(G.counts),
             paintable:G.paintable, time:G.time, phase:this.phase, endT:this.endT, roster:this.roster()};
   }
-  join(c, name){
-    const t = this.sim.addHuman({name});
+  join(c, name, cls){
+    const t = this.sim.addHuman({name, cls});
     if (!t) return false;
     c.room = this; c.tankId = t.id; this.clients.add(c);
     this.rosterDirty = true;
@@ -169,7 +169,8 @@ wss.on('connection', ws => {
       const mode = m.mode === 'teams' ? 'teams' : 'ffa';
       const name = String(m.name || '').replace(/[^\p{L}\p{N} _.\-]/gu, '').trim().slice(0, 16) || 'Player';
       const room = findRoom(mode);
-      if (!room.join(c, name)) send(c, {type:'error', text:'That room is full. Try again.'});
+      const cls = String(m.cls || 'splat');
+      if (!room.join(c, name, cls)) send(c, {type:'error', text:'That room is full. Try again.'});
       return;
     }
     if (!c.room) return;

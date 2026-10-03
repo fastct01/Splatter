@@ -44,13 +44,13 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .wide{width:860px}
 .wide h2{font:800 32px var(--display);margin:0}
 .sub{margin:4px 0 16px;color:var(--muted)}
-.class-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
-.cls{border:3px solid var(--rock);border-radius:16px;background:var(--panel);padding:14px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;color:var(--ink);font-family:var(--body);text-align:center}
-.cls:hover{border-color:var(--ink)}
-.cls canvas{width:150px;height:110px;max-width:100%}
-.cls b{font:800 22px var(--display)}
-.cls span{font-size:14px;color:var(--muted);line-height:1.45}
-.cls em{font-style:normal;font-size:12px;color:var(--ink);background:var(--floor);border-radius:999px;padding:3px 10px}
+.picks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.pick{border:3px solid var(--rock);border-radius:12px;background:var(--panel);padding:2px 2px 8px;display:flex;flex-direction:column;align-items:center;cursor:pointer;color:var(--ink);font:500 14px var(--display);min-width:0}
+.pick:hover{border-color:var(--ink)}
+.pick canvas{width:72px;height:72px;pointer-events:none}
+.pick[aria-pressed=true]{border-color:var(--ink);background:var(--floor);font-weight:800;box-shadow:inset 0 -5px 0 var(--pink)}
+.cls-info{margin:0;font-size:13px;color:var(--muted);line-height:1.5;min-height:39px}
+.cls-info b{color:var(--ink);font-weight:500}
 .results{width:900px;display:flex;flex-wrap:wrap;gap:24px;align-items:center}
 .res-map{flex:1 1 300px;min-width:0}
 .res-map canvas{width:100%;height:auto;border:3px solid var(--ink);border-radius:14px;display:block;image-rendering:pixelated;background:var(--floor)}
@@ -70,6 +70,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .stats-head span:last-child{font:500 13px var(--body);color:var(--muted)}
 #statRows{display:flex;flex-direction:column;gap:6px}
 .srow{display:grid;grid-template-columns:96px 1fr 36px;align-items:center;gap:8px;font-size:13px}
+.res-info .label{margin-bottom:-6px}
 .pips{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:2px}
 .pips i{height:9px;border-radius:2px;background:var(--floor)}
 .pips i.on{background:var(--ink)}
@@ -98,20 +99,15 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
       <button id="mFfa" class="mode" aria-pressed="true">Free-for-all · 15</button>
       <button id="mTeams" class="mode" aria-pressed="false">Teams 5 v 5 v 5</button>
     </div>
+    <div class="label" id="pickLabel">Class</div>
+    <div class="picks" id="picks" role="group" aria-labelledby="pickLabel"></div>
+    <p class="cls-info" id="clsInfo"></p>
     <div class="play-row">
       <button id="playOnline" class="btn primary">Play online</button>
       <button id="playLocal" class="btn">Practice vs bots</button>
     </div>
     <p class="status" id="status" role="status"></p>
     <p class="hint" id="hint"></p>
-  </div>
-</div>
-
-<div id="classes" class="screen dim" hidden>
-  <div class="card wide">
-    <h2>Choose your class</h2>
-    <p class="sub">Level 10 reached. You can't be hurt for 5 seconds while you pick.</p>
-    <div class="class-grid" id="classGrid"></div>
   </div>
 </div>
 
@@ -127,6 +123,8 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
         <div class="tile"><span>Splats</span><b id="tSplats"></b></div>
         <div class="tile"><span>XP earned</span><b id="tXp"></b></div>
       </div>
+      <div class="label" id="resPickLabel">Class for the next match</div>
+      <div class="picks" id="resPicks" role="group" aria-labelledby="resPickLabel"></div>
       <div class="row">
         <button id="again" class="btn primary">Play again</button>
         <button id="menu" class="btn">Main menu</button>
@@ -148,13 +146,13 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 </div>
 
 <div id="stats" class="stats" hidden>
-  <div class="stats-head"><span>Upgrade</span><span id="ptsLeft"></span></div>
+  <div class="stats-head"><span id="statsTitle">Upgrades</span><span id="ptsLeft"></span></div>
   <div id="statRows"></div>
 </div>
 
 <script type="module">
 import * as S from '/shared/sim.js';
-const {UPGRADE_COST, WW, WH, CELL, GW, GH, PCOL, PNAME, TCOL, TNAME, CLASSES, CLASS_LIST, CLASS_KEYS, STAT_NAMES, OBJ, OBJ_TYPES} = S;
+const {UPGRADE_COST, WW, WH, CELL, GW, GH, PCOL, PNAME, TCOL, TNAME, CLASSES, CLASS_LIST, CLASS_KEYS, OBJ, OBJ_TYPES} = S;
 const $ = id => document.getElementById(id);
 const cv = $('game'), ctx = cv.getContext('2d');
 let VW = 0, VH = 0, DPR = 1, SAFE = {t:0,r:0,b:0,l:0};
@@ -170,8 +168,8 @@ function fmtTime(s){ s = Math.max(0, Math.ceil(s)); return Math.floor(s/60) + ':
 function lerpAngle(a, b, u){ let d = b - a; while (d > Math.PI) d -= Math.PI*2; while (d < -Math.PI) d += Math.PI*2; return a + d*u; }
 
 /* ---------- settings ---------- */
-const settings = {nick:'', mode:'ffa'};
-try { const s = JSON.parse(localStorage.getItem('splatter-settings') || '{}'); if (s.nick) settings.nick = String(s.nick).slice(0,16); if (s.mode==='teams') settings.mode = 'teams'; } catch(e) {}
+const settings = {nick:'', mode:'ffa', cls:'splat'};
+try { const s = JSON.parse(localStorage.getItem('splatter-settings') || '{}'); if (s.nick) settings.nick = String(s.nick).slice(0,16); if (s.mode==='teams') settings.mode = 'teams'; if (CLASS_KEYS.includes(s.cls)) settings.cls = s.cls; } catch(e) {}
 function saveSettings(){ try { localStorage.setItem('splatter-settings', JSON.stringify(settings)); } catch(e) {} }
 
 /* ---------- paint layer ---------- */
@@ -211,7 +209,7 @@ function startLocal(kind, mode){
   s.sim = S.createSim({mode,
     onStamp: (x,y,r,o,rot) => drawStamp(mode, x, y, r, o, rot),
     onEvent: e => { if (s === session) handleEvent(e, s.myId); }});
-  if (kind === 'local'){ const t = s.sim.addHuman({name: settings.nick || 'You'}); s.myId = t.id; }
+  if (kind === 'local'){ const t = s.sim.addHuman({name: settings.nick || 'You', cls: settings.cls}); s.myId = t.id; }
   s.follow = null; s.camT = 0;
   session = s;
   const me = s.myId ? s.sim.getTank(s.myId) : s.sim.G.tanks[0];
@@ -228,7 +226,7 @@ function startNet(mode){
   const s = {kind:'net', mode, ws, myId:0, grid:new Uint8Array(GW*GH), counts:new Int32Array(16), paintable:1, obstacles:[], roster:new Map(),
              snaps:[], queue:[], offset:null, phase:'wait', time:S.MATCH, Y:null, meDisp:null, specialQ:false, joined:false, endAt:0};
   const timeout = setTimeout(() => { if (!s.joined){ setStatus('The server is waking up. This can take up to a minute on the free plan. Try again shortly.', true); $('playOnline').disabled = false; s.closing = true; try { ws.close(); } catch(e) {} } }, 15000);
-  ws.onopen = () => ws.send(JSON.stringify({t:'join', mode, name: settings.nick || 'Player'}));
+  ws.onopen = () => ws.send(JSON.stringify({t:'join', mode, name: settings.nick || 'Player', cls: settings.cls}));
   ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch(e){ return; } onNet(s, m, timeout); };
   ws.onclose = () => {
     clearTimeout(timeout); $('playOnline').disabled = false;
@@ -247,7 +245,7 @@ function onNet(s, m, timeout){
     S.decodeGrid(m.grid, s.grid); s.counts = Int32Array.from(m.counts); s.paintable = m.paintable;
     s.roster = new Map(m.roster.map(r => [r.id, r])); s.snaps = []; s.queue = []; s.phase = m.phase; s.time = m.time; s.meDisp = null;
     paintFromGrid(s.mode, s.grid);
-    $('results').hidden = true; $('classes').hidden = true;
+    $('results').hidden = true;
     if (m.phase === 'end'){ s.endAt = performance.now() + m.endT*1000; FX.toast = {text:'Next match starts soon', t:3}; }
     return;
   }
@@ -288,7 +286,6 @@ function handleEvent(e, myId){
     case 'gold': FX.feed.unshift({text:'A gold bucket appeared in the centre', mine:false, t:4}); FX.feed.length = Math.min(FX.feed.length, 4); break;
     case 'hit': FX.hits.push({x:e.x, y:e.y, t:0, T:0.2}); break;
     case 'lvl': FX.toast = {text:'Level ' + e.lv, t:1.6}; break;
-    case 'cls': if (session.kind !== 'demo') openClassSelect(); break;
     case 'toast': FX.toast = {text:e.text, t:1.8}; break;
     case 'shake': FX.shake = Math.max(FX.shake, e.s); break;
     case 'end': if (session.kind !== 'demo') showResults(); break;
@@ -367,13 +364,13 @@ function readInput(me){
   }
   if (touchCtl.left){ const L = touchCtl.left; let dx = (L.x - L.ox)/60, dy = (L.y - L.oy)/60; const l = Math.hypot(dx,dy); if (l > 1){ dx /= l; dy /= l; } mx = dx; my = dy; }
   if (touchCtl.right && me){ const R = touchCtl.right; const dx = R.x - R.ox, dy = R.y - R.oy, l = Math.hypot(dx,dy);
-    if (l > 14){ input.aim = Math.atan2(dy,dx); fire = true; input.aimDist = clamp(l/80,0.25,1)*CLASSES[me.cls].range*(1+0.08*(me.stats ? me.stats[3] : 0)); } }
+    if (l > 14){ input.aim = Math.atan2(dy,dx); fire = true; input.aimDist = clamp(l/80,0.25,1)*CLASSES[me.cls].range*(1+0.08*(me.stats ? S.up(me, 'range') : 0)); } }
   input.mx = mx; input.my = my; input.fire = fire;
 }
 setInterval(() => {
   const s = session;
   if (!s || s.kind !== 'net' || !s.joined || s.ws.readyState !== 1) return;
-  const playing = $('classes').hidden && $('results').hidden && $('pause').hidden;
+  const playing = $('results').hidden && $('pause').hidden;
   s.ws.send(JSON.stringify({t:'in', mx: playing ? +input.mx.toFixed(2) : 0, my: playing ? +input.my.toFixed(2) : 0, f: playing && input.fire ? 1 : 0, s: playing && s.specialQ ? 1 : 0, a: +input.aim.toFixed(3), d: Math.round(input.aimDist)}));
   s.specialQ = false;
 }, 50);
@@ -702,9 +699,9 @@ function drawHUD(){
     ctx.fillStyle = INK; rr(ctx, bx, by, bw*xpFrac, 12*u, 6*u); ctx.fill();
   }
   statsBox.style.bottom = (VH - iy + 10) + 'px';
-  if (touchCtl.used && p.cls !== 'splat'){
+  if (touchCtl.used){
     const sb = specialBtn(); ctx.beginPath(); ctx.arc(sb.x, sb.y, sb.r, 0, Math.PI*2); ctx.fillStyle = p.specialCd > 0 ? FLOOR : '#FF2D87'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
-    if (p.specialCd > 0){ ctx.beginPath(); ctx.moveTo(sb.x, sb.y); ctx.arc(sb.x, sb.y, sb.r - 4, -Math.PI/2, -Math.PI/2 + Math.PI*2*(1 - p.specialCd/8)); ctx.closePath(); ctx.fillStyle = 'rgba(35,42,53,.18)'; ctx.fill(); }
+    if (p.specialCd > 0){ ctx.beginPath(); ctx.moveTo(sb.x, sb.y); ctx.arc(sb.x, sb.y, sb.r - 4, -Math.PI/2, -Math.PI/2 + Math.PI*2*(1 - p.specialCd/(8*(1 - 0.10*(p.stats ? S.up(p, 'scd') : 0))))); ctx.closePath(); ctx.fillStyle = 'rgba(35,42,53,.18)'; ctx.fill(); }
     text(C.spec, sb.x, sb.y, '800 13px ' + FD, INK, 'center', 'middle');
   }
   for (const s of [touchCtl.left, touchCtl.right]){ if (!s) continue; ctx.globalAlpha = 0.5; ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.beginPath(); ctx.arc(s.ox, s.oy, 60, 0, Math.PI*2); ctx.stroke(); const dx = s.x - s.ox, dy = s.y - s.oy, l = Math.hypot(dx,dy), k = l > 60 ? 60/l : 1; ctx.beginPath(); ctx.arc(s.ox + dx*k, s.oy + dy*k, 24, 0, Math.PI*2); ctx.fillStyle = INK; ctx.fill(); ctx.globalAlpha = 1; }
@@ -721,41 +718,53 @@ function drawHUD(){
 
 /* ---------- DOM: stats panel ---------- */
 const statsBox = $('stats'), statRows = $('statRows');
-statRows.innerHTML = STAT_NAMES.map((n,i) => '<div class="srow"><span>' + n + '</span><div class="pips">' + '<i></i>'.repeat(8) + '</div><button class="plus" id="up' + i + '" aria-label="Upgrade ' + n + '">+</button></div>').join('');
-for (let i=0;i<6;i++) $('up' + i).addEventListener('click', e => { e.stopPropagation(); sendUpgrade(i); });
-let statsKey = '';
+let statsKey = '', statsCls = '';
+function buildStatRows(cls){
+  statsCls = cls; const C = CLASSES[cls];
+  $('statsTitle').textContent = C.label + ' upgrades';
+  statRows.innerHTML = C.ups.map((u,i) => '<div class="srow"><span>' + u[1] + '</span><div class="pips">' + '<i></i>'.repeat(8) + '</div><button class="plus" id="up' + i + '" aria-label="Upgrade ' + u[1] + '" title="Key ' + (i+1) + '">+</button></div>').join('');
+  for (let i=0;i<C.ups.length;i++) $('up' + i).addEventListener('click', e => { e.stopPropagation(); sendUpgrade(i); });
+}
+buildStatRows('splat');
 function syncStats(){
   const p = session && session.kind !== 'demo' && $('results').hidden && $('pause').hidden && V ? V.me : null;
   const show = !!(p && p.stats && !p.dead && p.points >= UPGRADE_COST && p.stats.some(v => v < 8));
   if (statsBox.hidden === show) statsBox.hidden = !show;
   if (!show) return;
-  const key = p.points + '|' + p.stats.join(',');
+  if (p.cls !== statsCls){ buildStatRows(p.cls); statsKey = ''; }
+  const key = p.cls + '|' + p.points + '|' + p.stats.join(',');
   if (key === statsKey) return; statsKey = key;
   $('ptsLeft').textContent = p.points + ' points';
   statRows.querySelectorAll('.srow').forEach((row,i) => { row.querySelectorAll('i').forEach((pip,k) => pip.classList.toggle('on', k < p.stats[i])); $('up' + i).disabled = p.stats[i] >= 8; });
 }
 
-/* ---------- DOM: class select ---------- */
-const classGrid = $('classGrid');
-function openClassSelect(){
-  classGrid.innerHTML = '';
-  const mySlot = V && V.me ? V.me.slot : 1, myCol = V && V.me ? tankColor(V.mode, V.me) : PCOL[mySlot];
+/* ---------- DOM: class pickers (title + results) ---------- */
+// The class is chosen before a match. On the results screen it applies from the next match.
+const PICK_COL = PCOL[1], pickBtns = [];
+function buildPicks(box){
   for (const k of CLASS_KEYS){
     const C = CLASSES[k];
-    const b = document.createElement('button'); b.className = 'cls'; b.type = 'button';
-    const c = document.createElement('canvas'); c.width = 300; c.height = 220;
-    b.appendChild(c);
-    b.insertAdjacentHTML('beforeend', '<b>' + C.label + '</b><span>' + C.desc + '</span><em>' + C.specLong + '</em>');
-    b.addEventListener('click', () => { sendClass(k); $('classes').hidden = true; });
-    classGrid.appendChild(b);
+    const b = document.createElement('button'); b.className = 'pick'; b.type = 'button'; b.dataset.k = k;
+    b.setAttribute('aria-pressed', String(k === settings.cls)); b.title = C.desc;
+    const c = document.createElement('canvas'); c.width = 130; c.height = 130;
+    b.appendChild(c); b.appendChild(document.createTextNode(C.label));
+    b.addEventListener('click', () => setClass(k));
+    box.appendChild(b); pickBtns.push(b);
     const g = c.getContext('2d');
-    const ft = {x:140, y:120, aim:0, cls:k, slot:mySlot, flash:0, moving:false, id:0};
-    const draw = () => { g.clearRect(0, 0, 300, 220); drawPlayer(g, ft, {scale:1.3, lvl:3, color:myCol}); };
-    const e = getSprite('E', myCol, GUN_OF[k], 3, false); if (e.ready) draw(); else e.cbs.push(draw);
+    const ft = {x:60, y:94, aim:Math.PI/4, cls:k, slot:1, flash:0, moving:false, id:0};
+    const draw = () => { g.clearRect(0, 0, 130, 130); drawPlayer(g, ft, {scale:1, lvl:3, color:PICK_COL}); };
+    const e = getSprite('SE', PICK_COL, GUN_OF[k], 3, false, 0); if (e.ready) draw(); else e.cbs.push(draw);
   }
-  $('pause').hidden = true;
-  $('classes').hidden = false;
 }
+function setClass(k){
+  if (!CLASS_KEYS.includes(k)) return;
+  settings.cls = k; saveSettings();
+  for (const b of pickBtns) b.setAttribute('aria-pressed', String(b.dataset.k === k));
+  const C = CLASSES[k];
+  $('clsInfo').innerHTML = '<b>' + C.desc + '.</b> ' + C.specLong + '.<br>Upgrades: ' + C.ups.map(u => u[1].toLowerCase()).join(', ');
+  if (session && session.kind === 'net' && session.joined) sendClass(k);
+}
+buildPicks($('picks')); buildPicks($('resPicks')); setClass(settings.cls);
 
 /* ---------- DOM: results ---------- */
 function showResults(){
@@ -786,7 +795,7 @@ function showResults(){
   const net = session.kind === 'net';
   $('again').hidden = net; $('nextNote').hidden = !net; $('menu').textContent = net ? 'Leave' : 'Main menu';
   if (net) session.endAt = performance.now() + 12000;
-  $('classes').hidden = true; $('pause').hidden = true; statsBox.hidden = true;
+  $('pause').hidden = true; statsBox.hidden = true;
   $('results').hidden = false;
   setTimeout(() => (net ? $('menu') : $('again')).focus(), 50);
 }
@@ -799,8 +808,8 @@ $('mFfa').addEventListener('click', () => setMode('ffa')); $('mTeams').addEventL
 const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 $('hint').textContent = coarse ? 'Left thumb moves. Right thumb aims and shoots. Tap the pink button for your class special.' : 'WASD to move · mouse to aim · click to shoot · Space for special · 1–6 to upgrade';
 function setStatus(t, err){ const el = $('status'); el.textContent = t || ''; el.classList.toggle('err', !!err); }
-function hideAllScreens(){ $('pause').hidden = true; $('title').hidden = true; $('results').hidden = true; $('classes').hidden = true; mouse.down = false; touchCtl.left = touchCtl.right = null; }
-function toTitle(){ closeNet(); $('pause').hidden = true; $('results').hidden = true; $('classes').hidden = true; statsBox.hidden = true; $('title').hidden = false; startLocal('demo', 'ffa'); refreshOnline(); }
+function hideAllScreens(){ $('pause').hidden = true; $('title').hidden = true; $('results').hidden = true; mouse.down = false; touchCtl.left = touchCtl.right = null; }
+function toTitle(){ closeNet(); $('pause').hidden = true; $('results').hidden = true; statsBox.hidden = true; $('title').hidden = false; startLocal('demo', 'ffa'); refreshOnline(); }
 $('playOnline').addEventListener('click', () => startNet(settings.mode));
 $('playLocal').addEventListener('click', () => { hideAllScreens(); setStatus(''); startLocal('local', settings.mode); statsKey = ''; });
 nick.addEventListener('keydown', e => { if (e.key === 'Enter') startNet(settings.mode); });
@@ -825,7 +834,7 @@ async function refreshOnline(){
 setInterval(refreshOnline, 8000);
 
 /* ---------- device input ---------- */
-const inGame = () => session && session.kind !== 'demo' && $('classes').hidden && $('results').hidden && $('pause').hidden;
+const inGame = () => session && session.kind !== 'demo' && $('results').hidden && $('pause').hidden;
 window.addEventListener('keydown', e => {
   if (e.target === nick) return;
   if (e.code === 'Escape'){ if (!e.repeat){ if (!$('pause').hidden) closePause(); else openPause(); } return; }
@@ -844,7 +853,7 @@ cv.addEventListener('touchstart', e => {
   e.preventDefault(); touchCtl.used = true; mouse.active = false;
   for (const t of e.changedTouches){
     const x = t.clientX, y = t.clientY, sb = specialBtn();
-    if (V && V.me && V.me.cls !== 'splat' && Math.hypot(x - sb.x, y - sb.y) < sb.r + 8){ queueSpecial(); continue; }
+    if (V && V.me && Math.hypot(x - sb.x, y - sb.y) < sb.r + 8){ queueSpecial(); continue; }
     if (x < VW/2 && !touchCtl.left) touchCtl.left = {id:t.identifier, ox:x, oy:y, x, y};
     else if (!touchCtl.right) touchCtl.right = {id:t.identifier, ox:x, oy:y, x, y};
   }
@@ -871,7 +880,7 @@ function frame(now){
     const me = s.myId ? s.sim.getTank(s.myId) : null;
     if (me){
       readInput(me);
-      const playing = $('classes').hidden && $('results').hidden && $('pause').hidden;
+      const playing = $('results').hidden && $('pause').hidden;
       s.sim.setInput(s.myId, {mx: playing ? input.mx : 0, my: playing ? input.my : 0, f: playing && input.fire, s: playing && s.specialQ, a: input.aim, d: input.aimDist});
       s.specialQ = false;
     }
