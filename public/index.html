@@ -73,7 +73,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .stats{position:fixed;z-index:3;left:calc(16px + env(safe-area-inset-left,0px));width:268px;max-width:calc(100vw - 32px);background:var(--panel);border:3px solid var(--ink);border-radius:14px;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px}
 .stats-head{display:flex;justify-content:space-between;font:800 15px var(--display)}
 .stats-head span:last-child{font:500 13px var(--body);color:var(--muted)}
-.ptsbox{width:250px}
+.ptsbox{width:270px}
 .ptsbox .stats-head{white-space:nowrap;gap:10px}
 #ptsCount{font:800 15px var(--display);color:var(--ink);font-variant-numeric:tabular-nums}
 .ptsbar{display:grid;gap:3px}
@@ -90,7 +90,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .pause-card h2{font:800 32px var(--display);margin:0}
 .pause-card .sub{margin:0 0 4px}
 .leave{position:fixed;z-index:3;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:none}
-@media (max-width:520px){.pick small,.pick kbd{display:none}.clsmenu-head b{font-size:16px}.card{padding:18px}.stats{width:220px}.ptsbox{width:150px;padding:8px 10px}.ptsbox .stats-head,#ptsCount{font-size:13px}.pts-word{display:none}.srow{grid-template-columns:78px 1fr 32px;font-size:12px}}
+@media (max-width:520px){.pick small,.pick kbd{display:none}.clsmenu-head b{font-size:16px}.card{padding:18px}.stats{width:220px}.ptsbox{padding:8px 10px}.ptsbox .stats-head,#ptsCount{font-size:13px}.pts-word{display:none}.srow{grid-template-columns:78px 1fr 32px;font-size:12px}}
 @media (prefers-reduced-motion:reduce){.btn:active,.mode:active{transform:none}.clsmenu{animation:none}}
 </style>
 </head>
@@ -157,7 +157,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 </div>
 
 <div id="ptsBox" class="stats ptsbox" role="status" hidden>
-  <div class="stats-head"><span>Next upgrade</span><span id="ptsCount"></span></div>
+  <div class="stats-head"><span>Upgrade</span><span id="ptsCount"></span></div>
   <div class="ptsbar" id="ptsBar" aria-hidden="true"></div>
 </div>
 
@@ -776,6 +776,7 @@ function drawHUD(){
     ctx.fillStyle = INK; rr(ctx, bx, by, bw*xpFrac, 12*u, 6*u); ctx.fill();
   }
   statsBox.style.bottom = ptsBox.style.bottom = (VH - iy + 10) + 'px';
+  ptsBox.style.width = Math.round(iw) + 'px';
   if (touchCtl.used && p.cls !== 'rookie'){
     const sb = specialBtn(); ctx.beginPath(); ctx.arc(sb.x, sb.y, sb.r, 0, Math.PI*2); ctx.fillStyle = p.specialCd > 0 ? FLOOR : '#FF2D87'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
     if (p.specialCd > 0){ ctx.beginPath(); ctx.moveTo(sb.x, sb.y); ctx.arc(sb.x, sb.y, sb.r - 4, -Math.PI/2, -Math.PI/2 + Math.PI*2*(1 - p.specialCd/(8*(1 - 0.10*(p.stats ? S.up(p, 'scd') : 0))))); ctx.closePath(); ctx.fillStyle = 'rgba(35,42,53,.18)'; ctx.fill(); }
