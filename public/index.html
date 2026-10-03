@@ -664,6 +664,53 @@ function shares(){
   else for (const t of V.tanks) out.push({owner:t.slot, name:t.name, color:PCOL[t.slot], v:V.counts[t.slot]/P, tank:t});
   return out;
 }
+/* ---------- health bar: wobbly liquid capsule with bubbles ---------- */
+const hpFx = {show:1, ghost:1, drops:[], bubbles:Array.from({length:8}, () => ({x:Math.random(), y:Math.random()*1.6 - 0.3, r:0.1 + Math.random()*0.14, v:0.5 + Math.random()*0.7}))};
+const healthColor = f => f > 0.6 ? '#2DBE5A' : f > 0.3 ? '#FFB020' : '#FF3B3B';
+function tint(h, f){ const c = rgbOf(h); return 'rgb(' + c.map(v => Math.round(v + (255 - v)*f)).join(',') + ')'; }
+function drawHeart(cx, cy, s, col){
+  ctx.beginPath(); ctx.moveTo(cx, cy + 0.5*s);
+  ctx.bezierCurveTo(cx - 1.05*s, cy - 0.1*s, cx - 0.5*s, cy - 0.9*s, cx, cy - 0.38*s);
+  ctx.bezierCurveTo(cx + 0.5*s, cy - 0.9*s, cx + 1.05*s, cy - 0.1*s, cx, cy + 0.5*s);
+  ctx.closePath(); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = Math.max(1.5, 0.16*s); ctx.strokeStyle = INK; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx - 0.32*s, cy - 0.28*s, 0.13*s, 0, Math.PI*2); ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fill();
+}
+function drawHealthBar(x, y, w, h, f, u, dead){
+  const dt = frameDt, r = h/2;
+  if (f < hpFx.show - 0.004){
+    for (let k = Math.min(7, 2 + Math.round((hpFx.show - f)*25)); k > 0; k--) hpFx.drops.push({x: x + w*hpFx.show, y: y + h*Math.random(), vx: rand(-30, 70), vy: rand(-170, -70), t:0, T: rand(0.35, 0.6), r: rand(1.8, 3.4)*u, c: healthColor(f)});
+    hpFx.show = f;
+  } else hpFx.show += (f - hpFx.show)*Math.min(1, dt*5);
+  hpFx.ghost = hpFx.ghost < hpFx.show ? hpFx.show : hpFx.ghost + (hpFx.show - hpFx.ghost)*Math.min(1, dt*2.2);
+  const fw = w*hpFx.show, col = healthColor(f), pulse = f < 0.3 && !dead ? 1 + 0.05*Math.pow(Math.max(0, Math.sin(clk*9)), 4) : 1;
+  ctx.save();
+  if (pulse !== 1){ ctx.translate(x + w/2, y + h/2); ctx.scale(pulse, pulse); ctx.translate(-(x + w/2), -(y + h/2)); }
+  ctx.fillStyle = FLOOR; rr(ctx, x, y, w, h, r); ctx.fill();
+  ctx.save(); rr(ctx, x, y, w, h, r); ctx.clip();
+  if (hpFx.ghost > hpFx.show + 0.002){ ctx.fillStyle = '#FF9DB4'; ctx.fillRect(x, y, w*hpFx.ghost, h); }
+  if (fw > 0.5){
+    const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, tint(col, 0.35)); g.addColorStop(0.55, col); g.addColorStop(1, darken(col, 0.82));
+    const amp = Math.min(2.2*u, fw*0.25);
+    ctx.beginPath(); ctx.moveTo(x - 1, y - 1);
+    for (let k=0;k<=8;k++) ctx.lineTo(x + fw + Math.sin(clk*7 + k*1.25)*amp, y - 1 + (h + 2)*k/8);
+    ctx.lineTo(x - 1, y + h + 1); ctx.closePath(); ctx.fillStyle = g; ctx.fill();
+    for (const b of hpFx.bubbles){
+      b.y -= b.v*dt; if (b.y < -0.3){ b.y = 1.3; b.x = Math.random(); }
+      const bx = x + 5*u + b.x*(w - 10*u) + Math.sin(clk*2.5 + b.x*20)*1.5*u, br = b.r*h;
+      if (bx > x + fw - br - 3*u) continue;
+      ctx.beginPath(); ctx.arc(bx, y + b.y*h, br, 0, Math.PI*2); ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,.5)'; rr(ctx, x + r*0.7, y + h*0.17, Math.max(0, Math.min(fw, w) - r*1.4), h*0.2, h*0.1); ctx.fill();
+  }
+  ctx.restore();
+  ctx.lineWidth = Math.max(2, 2.5*u); ctx.strokeStyle = INK; rr(ctx, x, y, w, h, r); ctx.stroke();
+  ctx.restore();
+  for (const d of hpFx.drops){
+    d.t += dt; d.vy += 520*dt; d.x += d.vx*dt; d.y += d.vy*dt;
+    ctx.globalAlpha = Math.max(0, 1 - d.t/d.T); ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI*2); ctx.fillStyle = d.c; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = INK; ctx.stroke();
+  }
+  ctx.globalAlpha = 1; hpFx.drops = hpFx.drops.filter(d => d.t < d.T);
+}
 function specialBtn(){ const u = clamp(Math.min(VW,VH)/720, 0.62, 1); return {x: VW - 16 - SAFE.r - 50, y: VH - 16 - SAFE.b - 45*u, r: 40}; }
 
 function drawHUD(){
@@ -752,10 +799,11 @@ function drawHUD(){
   const iw = (merged ? 210 : 270)*u, ih = (merged ? 150 : 130)*u, ix = L, iy = B0 - ih, hy = 46*u;
   panel(ix, iy, iw, ih, u);
   const fs = '500 ' + Math.round(14*u) + 'px ' + FB, hf = clamp((p.hp || 0)/(p.mhp || 100), 0, 1);
-  text('Health', ix + 14*u, iy + 22*u, fs);
+  const beat = hf < 0.3 && !p.dead ? Math.pow(Math.max(0, Math.sin(clk*9)), 4) : Math.pow(Math.max(0, Math.sin(clk*3.2)), 8)*0.5;
+  drawHeart(ix + 21*u, iy + 16*u, 13*u*(1 + 0.18*beat), healthColor(hf));
+  text('Health', ix + 34*u, iy + 22*u, fs);
   text(Math.ceil(p.hp || 0) + ' / ' + Math.round(p.mhp || 100), ix + iw - 14*u, iy + 22*u, fs, INK, 'right');
-  ctx.fillStyle = FLOOR; rr(ctx, ix + 14*u, iy + 32*u, iw - 28*u, 12*u, 6*u); ctx.fill();
-  ctx.fillStyle = hf < 0.3 ? '#FF3B3B' : '#2DBE5A'; rr(ctx, ix + 14*u, iy + 32*u, (iw - 28*u)*hf, 12*u, 6*u); ctx.fill();
+  drawHealthBar(ix + 14*u, iy + 29*u, iw - 28*u, 17*u, hf, u, p.dead);
   text('Ink tank', ix + 14*u, iy + hy + 22*u, fs);
   text(Math.round(p.ink/cap*100) + '%', ix + iw - 14*u, iy + hy + 22*u, fs, INK, 'right');
   ctx.fillStyle = FLOOR; rr(ctx, ix + 14*u, iy + hy + 32*u, iw - 28*u, 12*u, 6*u); ctx.fill();
