@@ -66,7 +66,6 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .next{font:500 15px var(--body);color:var(--muted);font-variant-numeric:tabular-nums}
 .stats{position:fixed;z-index:3;left:calc(16px + env(safe-area-inset-left,0px));width:268px;max-width:calc(100vw - 32px);background:var(--panel);border:3px solid var(--ink);border-radius:14px;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px}
-.stats.locked #statRows{display:none}
 .stats-head{display:flex;justify-content:space-between;font:800 15px var(--display)}
 .stats-head span:last-child{font:500 13px var(--body);color:var(--muted)}
 #statRows{display:flex;flex-direction:column;gap:6px}
@@ -75,7 +74,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .pips i{height:9px;border-radius:2px;background:var(--floor)}
 .pips i.on{background:var(--ink)}
 .plus{width:36px;height:28px;border:none;border-radius:8px;background:var(--pink);color:var(--ink);font:800 18px var(--display);cursor:pointer;padding:0}
-.plus:disabled{background:var(--floor);color:var(--rock);cursor:default}
+.plus:disabled{background:var(--alert);color:rgba(255,255,255,.7);box-shadow:0 0 8px 1px rgba(184,18,92,.55);cursor:not-allowed}
 .pause-card{width:360px;display:flex;flex-direction:column;gap:12px;text-align:center}
 .pause-card h2{font:800 32px var(--display);margin:0}
 .pause-card .sub{margin:0 0 4px}
