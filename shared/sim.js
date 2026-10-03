@@ -17,13 +17,14 @@ export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner'];
 export const CLASS_KEYS = ['roller','bomber','sprayer','liner'];
 export const STAT_NAMES = ['Ink capacity','Bullet damage','Fire rate','Bullet range','Hull health','Move speed'];
 export const OBJ_TYPES = ['can','barrel','gold','triangle'];
-export const OBJ = {can:{hp:20,mass:2,xp:10,r:22,splat:50}, barrel:{hp:80,mass:6,xp:50,r:30,splat:120}, gold:{hp:200,mass:4,xp:200,r:26,splat:160}, triangle:{hp:45,mass:3,xp:35,r:26,splat:75}};
+export const OBJ = {can:{hp:35,mass:2,xp:10,r:22,splat:50}, barrel:{hp:110,mass:6,xp:50,r:30,splat:120}, gold:{hp:200,mass:4,xp:200,r:26,splat:160}, triangle:{hp:75,mass:3,xp:35,r:26,splat:75}};
 // Share of normal spawns: triangles are rare (about 1 in 12)
 export const TRIANGLE_CHANCE = 0.08, BARREL_CHANCE = 0.22;
 export function randomObjectType(){ const r = Math.random(); return r < TRIANGLE_CHANCE ? 'triangle' : r < TRIANGLE_CHANCE + BARREL_CHANCE ? 'barrel' : 'can'; }
 const BOT_NAMES = ['blue_wave','limelight','tangerine','sunny','purp','aqua','redline','honey','moss','minty','skyhigh','indigo','magenta','cocoa','splatcat','drip','smudge','inky','roller_rex','blotto','gloss','tint'];
 
-export const xpNeed = n => Math.round(15*Math.pow(n,1.4));
+export const xpNeed = n => Math.round(19*Math.pow(n,1.4));
+export const CLASS_LEVEL = 10;     // level at which a player picks a class
 export const maxHpOf = stats => 100 + 12*stats[4];
 export const inkCapOf = stats => 100*(1 + 0.12*stats[0]);
 export const START_INK = 0.4;
@@ -201,7 +202,7 @@ export function createSim(opts){
     if (Number.isFinite(+inp.d)) t.aimDist = clamp(+inp.d, 0, 3000);
   }
   function upgradeId(id, i){ const t = getTank(id); if (t && Number.isInteger(i) && i >= 0 && i < 6) upgrade(t, i); }
-  function pickClass(id, k){ const t = getTank(id); if (t && t.cls === 'splat' && t.level >= 15 && CLASS_KEYS.includes(k)) setClass(t, k); }
+  function pickClass(id, k){ const t = getTank(id); if (t && t.cls === 'splat' && t.level >= CLASS_LEVEL && CLASS_KEYS.includes(k)) setClass(t, k); }
 
   function spawnTank(t){
     t.r = CLASSES[t.cls].r;
@@ -256,7 +257,7 @@ export function createSim(opts){
     while (t.level < 30 && t.xp >= xpNeed(t.level)){
       t.xp -= xpNeed(t.level); t.level++; t.points++;
       if (t.human) onEvent({k:'lvl', id:t.id, lv:t.level});
-      if (t.level === 15 && t.cls === 'splat'){
+      if (t.level === CLASS_LEVEL && t.cls === 'splat'){
         if (t.human){ t.classPending = true; t.protect = Math.max(t.protect, 5); onEvent({k:'cls', id:t.id}); }
         else setClass(t, CLASS_KEYS[Math.floor(Math.random()*4)]);
       }
