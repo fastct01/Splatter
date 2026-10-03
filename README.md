@@ -33,7 +33,7 @@ The free plan sleeps after 15 minutes without traffic and takes about a minute t
 
 ## Classes and upgrades
 
-Pick a class on the title screen before you play. You keep it for the whole match; on the results screen you can pick a different one for the next match.
+Everyone starts each match as a **Rookie** with a basic paint pistol. Rookie upgrades are cheap (4 points each). After your 5th upgrade a class menu pops up in the middle of the screen. You keep full control while it's open: click a class or press 1–4, and your player transforms into it. Upgrades the new class also has carry over; the rest are refunded as points. Bots pick a class at random.
 
 | Class | Plays like | Special (Space) | Its 6 upgrades |
 |---|---|---|---|
@@ -42,9 +42,9 @@ Pick a class on the title screen before you play. You keep it for the whole matc
 | Bomber | Lobs bombs that burst into big splashes | Next bomb splits into 4 | Blast radius, bomb damage, reload, throw range, ink tank, health |
 | Liner | Long-range sniper that paints thin lines | Zoom out for 4 s | Shot damage, range, line width, reload, ink tank, move speed |
 
-Every 50 XP gives 1 upgrade point and an upgrade costs 10 points, so you get one upgrade per 500 XP. Each upgrade goes up to 8 levels. XP comes from painting, breaking objects and splatting players.
+Every 50 XP gives 1 upgrade point. Class upgrades cost 10 points (one per 500 XP) and go up to 8 levels each. XP comes from painting, breaking objects and splatting players. In bot tests most players unlock their class 40 s to 2 min into the 3-minute match.
 
 ## Controls
 
-- Computer: WASD to move, mouse to aim, click to shoot, Space for your class special, 1–6 to upgrade stats.
+- Computer: WASD to move, mouse to aim, click to shoot, Space for your class special, 1–6 to upgrade, 1–4 to pick a class when the class menu is open.
 - Phone: left thumb moves, right thumb aims and shoots, pink button for your special.

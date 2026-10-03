@@ -7,20 +7,22 @@ export const PNAME = ['','Pink','Red','Orange','Amber','Yellow','Lime','Green','
 export const TCOL = [null,'#2D8CFF','#FF8A1F','#FFD21F'];
 export const TNAME = ['','Blue','Orange','Yellow'];
 export const CLASSES = {
-  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, rate:3, speed:700, range:520, dmg:12, ink:3, splat:42, br:8, desc:'All-rounder: steady shots at medium range', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
+  rookie:    {label:'Rookie', r:28, mass:1.0, hp:100, rate:2.5, speed:650, range:480, dmg:10, ink:3, splat:40, br:7, desc:'Starter with a basic paint pistol', tag:'', spec:'', specLong:'',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  roller:    {label:'Roller', r:34, mass:1.4, hp:120, rate:2, speed:700, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by driving', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
+  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, rate:3, speed:700, range:520, dmg:12, ink:3, splat:42, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
+               ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
+  roller:    {label:'Roller', r:34, mass:1.4, hp:120, rate:2, speed:700, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by walking', tag:'Paints as it walks', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
                ups:[['trail','Roller width'],['ram','Ram damage'],['scd','Charge reload'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  bomber:    {label:'Bomber', r:32, mass:1.2, hp:100, rate:0.8, speed:900, range:650, dmg:35, ink:12, splat:110, br:12, bomb:true, desc:'Lobs ink bombs that burst into big splashes', spec:'Cluster', specLong:'Special: next bomb splits into 4',
+  bomber:    {label:'Bomber', r:32, mass:1.2, hp:100, rate:0.8, speed:900, range:650, dmg:35, ink:12, splat:110, br:12, bomb:true, desc:'Lobs ink bombs that burst into big splashes', tag:'Big splash bombs', spec:'Cluster', specLong:'Special: next bomb splits into 4',
                ups:[['blast','Blast radius'],['dmg','Bomb damage'],['rate','Reload'],['range','Throw range'],['ink','Ink tank'],['hp','Health']]},
-  sprayer:   {label:'Sprayer', r:30, mass:1.0, hp:100, rate:2, speed:600, range:340, dmg:7, ink:8, splat:30, br:7, spread:5, desc:'Spray gun: a 5-shot spread in front', spec:'Spin', specLong:'Special: 3 s of spinning spray',
+  sprayer:   {label:'Sprayer', r:30, mass:1.0, hp:100, rate:2, speed:600, range:340, dmg:7, ink:8, splat:30, br:7, spread:5, desc:'Spray gun: a 5-shot spread in front', tag:'5-shot spread', spec:'Spin', specLong:'Special: 3 s of spinning spray',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  liner:     {label:'Liner', r:28, mass:0.9, hp:90, rate:1, speed:1500, range:1100, dmg:30, ink:10, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
+  liner:     {label:'Liner', r:28, mass:0.9, hp:90, rate:1, speed:1500, range:1100, dmg:30, ink:10, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', tag:'Long-range lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
                ups:[['dmg','Shot damage'],['range','Range'],['line','Line width'],['rate','Reload'],['ink','Ink tank'],['speed','Move speed']]}
 };
-export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner'];
-export const CLASS_KEYS = ['splat','roller','bomber','liner'];   // classes players can pick at the start
-export const STAT_NAMES = ['Ink capacity','Bullet damage','Fire rate','Bullet range','Hull health','Move speed'];
+export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner','rookie'];   // network order: only append
+export const CLASS_KEYS = ['splat','roller','bomber','liner'];   // classes a Rookie can transform into
+export const CLASS_AT = 5;                                       // upgrades bought before the class menu opens
 export const OBJ_TYPES = ['can','barrel','gold','triangle'];
 export const OBJ = {can:{hp:35,mass:2,xp:10,r:22,splat:50}, barrel:{hp:110,mass:6,xp:50,r:30,splat:120}, gold:{hp:200,mass:4,xp:200,r:26,splat:160}, triangle:{hp:75,mass:3,xp:35,r:26,splat:75}};
 // Share of normal spawns: triangles are rare (about 1 in 12)
@@ -29,7 +31,9 @@ export function randomObjectType(){ const r = Math.random(); return r < TRIANGLE
 const BOT_NAMES = ['blue_wave','limelight','tangerine','sunny','purp','aqua','redline','honey','moss','minty','skyhigh','indigo','magenta','cocoa','splatcat','drip','smudge','inky','roller_rex','blotto','gloss','tint'];
 
 export const xpNeed = n => Math.round(19*Math.pow(n,1.4));
-export const XP_PER_POINT = 50, UPGRADE_COST = 10;
+export const XP_PER_POINT = 50, UPGRADE_COST = 10, ROOKIE_COST = 4;
+// Rookie upgrades are cheaper so the class menu arrives within the first minute or so
+export const upgradeCost = t => t.cls === 'rookie' ? ROOKIE_COST : UPGRADE_COST;
 // points a player has put into one of their class's upgrades
 export function up(t, key){ const u = CLASSES[t.cls].ups; for (let i=0;i<u.length;i++) if (u[i][0] === key) return t.stats[i] || 0; return 0; }
 export const maxHpOf = t => (CLASSES[t.cls].hp || 100) + (t.cls === 'roller' ? 15 : 12)*up(t, 'hp');
@@ -126,7 +130,7 @@ export function createSim(opts){
   }
 
   function makeTank(o){
-    const t = Object.assign({id:nextId++, name:'', human:false, slot:1, team:0, x:0, y:0, vx:0, vy:0, aim:0, aimDist:400, cls:'splat', r:30,
+    const t = Object.assign({id:nextId++, name:'', human:false, slot:1, team:0, x:0, y:0, vx:0, vy:0, aim:0, aimDist:400, cls:'rookie', r:28,
       level:1, xp:0, xpTotal:0, points:0, ptsXp:0, stats:[0,0,0,0,0,0], hp:100, ink:100, reload:0, specialCd:0, specialT:0, cluster:false,
       surface:0, sm:1, am:1, lastHit:-99, dead:false, respawnT:0, protect:2, flash:0, cellsPainted:0, paintAcc:0, splats:0, deaths:0,
       trailAcc:0, spinA:0, spinReload:0, moving:false, damagers:{}, killedBy:'', classPending:false, charge:false, spinning:false,
@@ -145,7 +149,7 @@ export function createSim(opts){
     while (useBots && G.tanks.length < MAX_PLAYERS){
       let team = 0;
       if (mode === 'teams'){ const c = [0,0,0,0]; for (const t of G.tanks) c[t.team]++; team = [1,2,3].find(k => c[k] < 5); }
-      const t = makeTank({name:botName(), slot:freeSlots()[0], team, cls:randomClass()});
+      const t = makeTank({name:botName(), slot:freeSlots()[0], team});
       G.tanks.push(t); spawnTank(t);
     }
   }
@@ -157,7 +161,7 @@ export function createSim(opts){
     G.counts[0] = G.paintable;
     G.time = MATCH; G.clock = 0; G.over = false; G.bullets = []; G.bombs = []; G.objects = []; G.goldT = 25;
     const humans = G.tanks.filter(t => t.human);
-    G.tanks = humans.map(h => makeTank({id:h.id, name:h.name, human:true, slot:h.slot, team:h.team, cls:h.nextCls || h.cls}));
+    G.tanks = humans.map(h => makeTank({id:h.id, name:h.name, human:true, slot:h.slot, team:h.team}));
     for (const t of G.tanks) spawnTank(t);
     fillBots();
     for (let k=0;k<40;k++) spawnObject(randomObjectType());
@@ -169,7 +173,7 @@ export function createSim(opts){
       if (G.tanks.length >= MAX_PLAYERS) return null;
       let team = 0;
       if (mode === 'teams'){ const c = [0,0,0,0]; for (const t of G.tanks) c[t.team]++; team = shuffle([1,2,3]).sort((a,b) => c[a] - c[b])[0]; if (c[team] >= 5) return null; }
-      const t = makeTank({name:o.name || 'Player', human:true, slot:freeSlots()[0], team, cls: CLASS_KEYS.includes(o.cls) ? o.cls : 'splat'});
+      const t = makeTank({name:o.name || 'Player', human:true, slot:freeSlots()[0], team});
       G.tanks.push(t); spawnTank(t);
       onEvent({k:'roster'});
       return t;
@@ -186,7 +190,7 @@ export function createSim(opts){
     } else {
       victim = bots[Math.floor(Math.random()*bots.length)];
     }
-    const t = makeTank({name:o.name || 'Player', human:true, slot:victim.slot, team:victim.team, cls: CLASS_KEYS.includes(o.cls) ? o.cls : 'splat'});
+    const t = makeTank({name:o.name || 'Player', human:true, slot:victim.slot, team:victim.team});
     G.tanks[G.tanks.indexOf(victim)] = t;
     spawnTank(t);
     onEvent({k:'roster'});
@@ -196,7 +200,7 @@ export function createSim(opts){
     const i = G.tanks.findIndex(t => t.id === id); if (i < 0) return;
     if (!useBots){ G.tanks.splice(i, 1); onEvent({k:'roster'}); return; }
     const h = G.tanks[i];
-    const b = makeTank({name:'', slot:h.slot, team:h.team, cls:randomClass()});
+    const b = makeTank({name:'', slot:h.slot, team:h.team});
     G.tanks[i] = b; b.name = botName(); spawnTank(b);
     onEvent({k:'roster'});
   }
@@ -210,8 +214,7 @@ export function createSim(opts){
     if (Number.isFinite(+inp.d)) t.aimDist = clamp(+inp.d, 0, 3000);
   }
   function upgradeId(id, i){ const t = getTank(id); if (t && Number.isInteger(i) && i >= 0 && i < 6) upgrade(t, i); }
-  // class changes apply from the next match
-  function pickClass(id, k){ const t = getTank(id); if (t && CLASS_KEYS.includes(k)) t.nextCls = k; }
+  function pickClass(id, k){ const t = getTank(id); if (t && t.classPending && CLASS_KEYS.includes(k)) transform(t, k); }
 
   function spawnTank(t){
     t.r = CLASSES[t.cls].r;
@@ -271,14 +274,31 @@ export function createSim(opts){
     if (t.level >= 30) t.xp = Math.min(t.xp, xpNeed(30));
     t.xpn = xpNeed(t.level);
   }
-  function setClass(t, k){ t.cls = k; t.r = CLASSES[k].r; t.classPending = false; t.specialCd = 2; }
+  // Rookie -> class. Upgrades the new class also has carry over; the rest are refunded as points.
+  function transform(t, k){
+    const oldUps = CLASSES[t.cls].ups, newUps = CLASSES[k].ups;
+    const hpF = t.mhp ? t.hp/t.mhp : 1, inkF = t.icap ? t.ink/t.icap : 1;
+    const stats = newUps.map(u => { const j = oldUps.findIndex(o => o[0] === u[0]); return j >= 0 ? t.stats[j] : 0; });
+    const kept = stats.reduce((a,b) => a+b, 0), had = t.stats.reduce((a,b) => a+b, 0);
+    t.points += (had - kept)*ROOKIE_COST;
+    t.cls = k; t.r = CLASSES[k].r; t.stats = stats; t.classPending = false;
+    t.specialCd = 0; t.specialT = 0; t.cluster = false; t.flash = 0.18;
+    refresh(t); t.hp = Math.max(1, hpF*t.mhp); t.ink = inkF*t.icap;
+    if (!t.dead){ stamp(t.x, t.y, 70, paintOwner(t), null); onEvent({k:'ring', x:t.x, y:t.y, r:120, o:paintOwner(t)}); }
+    onEvent({k:'xform', id:t.id, cls:k, refund:(had - kept)});
+  }
   function upgrade(t, i){
-    if (t.points < UPGRADE_COST || t.stats[i] >= 8) return;
+    const cost = upgradeCost(t);
+    if (t.points < cost || t.stats[i] >= 8) return;
     const key = CLASSES[t.cls].ups[i][0];
-    t.stats[i]++; t.points -= UPGRADE_COST;
+    t.stats[i]++; t.points -= cost;
     if (key === 'hp') t.hp += t.cls === 'roller' ? 15 : 12;
     if (key === 'ink') t.ink += 12;
     refresh(t);
+    if (t.cls === 'rookie' && !t.classPending && t.stats.reduce((a,b) => a+b, 0) >= CLASS_AT){
+      t.classPending = true;
+      if (t.human) onEvent({k:'cls', id:t.id});
+    }
   }
 
   function damage(t, amt, src){
@@ -329,7 +349,7 @@ export function createSim(opts){
       owner:t, po:paintOwner(t), dist:0, range:C.range*rm, splat:C.splat, line:!!C.line, lineR:11*(1 + 0.12*up(t, 'line')), drop:0, dead:false});
   }
   function special(t){
-    if (t.specialCd > 0) return;
+    if (t.specialCd > 0 || t.cls === 'rookie') return;
     t.specialCd = 8*(1 - 0.10*up(t, 'scd'));
     if (t.cls === 'splat') t.specialT = 2;
     if (t.cls === 'roller') t.specialT = 1.5;
@@ -360,7 +380,8 @@ export function createSim(opts){
         ai.wp = bp || [WW/2, WH/2]; ai.wpT = rand(3,5);
       }
       ai.err = (Math.random()-0.5)*0.22;
-      while (t.points >= UPGRADE_COST){ const w = [2,3,3,2,3,2]; let tot = 0; for (let i=0;i<6;i++) if (t.stats[i]<8) tot += w[i]; if (!tot) break; let r = Math.random()*tot; for (let i=0;i<6;i++){ if (t.stats[i]>=8) continue; r -= w[i]; if (r <= 0){ upgrade(t,i); break; } } }
+      if (t.classPending && Math.random() < 0.15) transform(t, randomClass());
+      while (t.points >= upgradeCost(t)){ const w = [2,3,3,2,3,2]; let tot = 0; for (let i=0;i<6;i++) if (t.stats[i]<8) tot += w[i]; if (!tot) break; let r = Math.random()*tot; for (let i=0;i<6;i++){ if (t.stats[i]>=8) continue; r -= w[i]; if (r <= 0){ upgrade(t,i); break; } } }
     }
     let mx = 0, my = 0, fireOn = false, spec = false, aim = t.aim;
     const e = ai.target && !ai.target.dead ? ai.target : null;

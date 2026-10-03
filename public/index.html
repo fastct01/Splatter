@@ -44,13 +44,18 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .wide{width:860px}
 .wide h2{font:800 32px var(--display);margin:0}
 .sub{margin:4px 0 16px;color:var(--muted)}
+.clsmenu{position:fixed;z-index:4;left:50%;top:min(calc(50% + 64px), calc(100% - 210px));transform:translateX(-50%);width:min(520px, calc(100vw - 32px));background:var(--panel);border:3px solid var(--ink);border-radius:16px;padding:10px 12px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;box-shadow:0 0 0 5px rgba(255,45,135,.35);animation:menuPop .22s ease-out}
+.clsmenu-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.clsmenu-head b{font:800 18px var(--display)}
+.clsmenu-head span{font-size:13px;color:var(--muted)}
 .picks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-.pick{border:3px solid var(--rock);border-radius:12px;background:var(--panel);padding:2px 2px 8px;display:flex;flex-direction:column;align-items:center;cursor:pointer;color:var(--ink);font:500 14px var(--display);min-width:0}
-.pick:hover{border-color:var(--ink)}
-.pick canvas{width:72px;height:72px;pointer-events:none}
-.pick[aria-pressed=true]{border-color:var(--ink);background:var(--floor);font-weight:800;box-shadow:inset 0 -5px 0 var(--pink)}
-.cls-info{margin:0;font-size:13px;color:var(--muted);line-height:1.5;min-height:39px}
-.cls-info b{color:var(--ink);font-weight:500}
+.pick{position:relative;border:3px solid var(--rock);border-radius:12px;background:var(--panel);padding:2px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;color:var(--ink);font-family:var(--body);min-width:0;text-align:center}
+.pick:hover,.pick:focus-visible{border-color:var(--ink);background:var(--floor)}
+.pick canvas{width:64px;height:64px;pointer-events:none}
+.pick b{font:800 15px var(--display)}
+.pick small{font-size:12px;color:var(--muted);line-height:1.3}
+.pick kbd{position:absolute;top:5px;left:6px;font:500 11px var(--body);color:var(--muted)}
+@keyframes menuPop{from{opacity:0;transform:translateX(-50%) scale(.88)}to{opacity:1;transform:translateX(-50%) scale(1)}}
 .results{width:900px;display:flex;flex-wrap:wrap;gap:24px;align-items:center}
 .res-map{flex:1 1 300px;min-width:0}
 .res-map canvas{width:100%;height:auto;border:3px solid var(--ink);border-radius:14px;display:block;image-rendering:pixelated;background:var(--floor)}
@@ -70,7 +75,6 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .stats-head span:last-child{font:500 13px var(--body);color:var(--muted)}
 #statRows{display:flex;flex-direction:column;gap:6px}
 .srow{display:grid;grid-template-columns:96px 1fr 36px;align-items:center;gap:8px;font-size:13px}
-.res-info .label{margin-bottom:-6px}
 .pips{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:2px}
 .pips i{height:9px;border-radius:2px;background:var(--floor)}
 .pips i.on{background:var(--ink)}
@@ -80,8 +84,8 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .pause-card h2{font:800 32px var(--display);margin:0}
 .pause-card .sub{margin:0 0 4px}
 .leave{position:fixed;z-index:3;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:none}
-@media (max-width:520px){.card{padding:18px}.stats{width:220px}.srow{grid-template-columns:78px 1fr 32px;font-size:12px}}
-@media (prefers-reduced-motion:reduce){.btn:active,.mode:active{transform:none}}
+@media (max-width:520px){.pick small,.pick kbd{display:none}.clsmenu-head b{font-size:16px}.card{padding:18px}.stats{width:220px}.srow{grid-template-columns:78px 1fr 32px;font-size:12px}}
+@media (prefers-reduced-motion:reduce){.btn:active,.mode:active{transform:none}.clsmenu{animation:none}}
 </style>
 </head>
 <body>
@@ -99,9 +103,6 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
       <button id="mFfa" class="mode" aria-pressed="true">Free-for-all · 15</button>
       <button id="mTeams" class="mode" aria-pressed="false">Teams 5 v 5 v 5</button>
     </div>
-    <div class="label" id="pickLabel">Class</div>
-    <div class="picks" id="picks" role="group" aria-labelledby="pickLabel"></div>
-    <p class="cls-info" id="clsInfo"></p>
     <div class="play-row">
       <button id="playOnline" class="btn primary">Play online</button>
       <button id="playLocal" class="btn">Practice vs bots</button>
@@ -123,8 +124,6 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
         <div class="tile"><span>Splats</span><b id="tSplats"></b></div>
         <div class="tile"><span>XP earned</span><b id="tXp"></b></div>
       </div>
-      <div class="label" id="resPickLabel">Class for the next match</div>
-      <div class="picks" id="resPicks" role="group" aria-labelledby="resPickLabel"></div>
       <div class="row">
         <button id="again" class="btn primary">Play again</button>
         <button id="menu" class="btn">Main menu</button>
@@ -145,6 +144,11 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
   </div>
 </div>
 
+<div id="clsMenu" class="clsmenu" role="group" aria-labelledby="clsMenuTitle" hidden>
+  <div class="clsmenu-head"><b id="clsMenuTitle">Choose your class</b><span id="clsMenuNote"></span></div>
+  <div class="picks" id="clsCards"></div>
+</div>
+
 <div id="stats" class="stats" hidden>
   <div class="stats-head"><span id="statsTitle">Upgrades</span><span id="ptsLeft"></span></div>
   <div id="statRows"></div>
@@ -152,7 +156,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 
 <script type="module">
 import * as S from '/shared/sim.js';
-const {UPGRADE_COST, WW, WH, CELL, GW, GH, PCOL, PNAME, TCOL, TNAME, CLASSES, CLASS_LIST, CLASS_KEYS, OBJ, OBJ_TYPES} = S;
+const {WW, WH, CELL, GW, GH, PCOL, PNAME, TCOL, TNAME, CLASSES, CLASS_LIST, CLASS_KEYS, OBJ, OBJ_TYPES} = S;
 const $ = id => document.getElementById(id);
 const cv = $('game'), ctx = cv.getContext('2d');
 let VW = 0, VH = 0, DPR = 1, SAFE = {t:0,r:0,b:0,l:0};
@@ -168,8 +172,8 @@ function fmtTime(s){ s = Math.max(0, Math.ceil(s)); return Math.floor(s/60) + ':
 function lerpAngle(a, b, u){ let d = b - a; while (d > Math.PI) d -= Math.PI*2; while (d < -Math.PI) d += Math.PI*2; return a + d*u; }
 
 /* ---------- settings ---------- */
-const settings = {nick:'', mode:'ffa', cls:'splat'};
-try { const s = JSON.parse(localStorage.getItem('splatter-settings') || '{}'); if (s.nick) settings.nick = String(s.nick).slice(0,16); if (s.mode==='teams') settings.mode = 'teams'; if (CLASS_KEYS.includes(s.cls)) settings.cls = s.cls; } catch(e) {}
+const settings = {nick:'', mode:'ffa'};
+try { const s = JSON.parse(localStorage.getItem('splatter-settings') || '{}'); if (s.nick) settings.nick = String(s.nick).slice(0,16); if (s.mode==='teams') settings.mode = 'teams'; } catch(e) {}
 function saveSettings(){ try { localStorage.setItem('splatter-settings', JSON.stringify(settings)); } catch(e) {} }
 
 /* ---------- paint layer ---------- */
@@ -209,7 +213,7 @@ function startLocal(kind, mode){
   s.sim = S.createSim({mode,
     onStamp: (x,y,r,o,rot) => drawStamp(mode, x, y, r, o, rot),
     onEvent: e => { if (s === session) handleEvent(e, s.myId); }});
-  if (kind === 'local'){ const t = s.sim.addHuman({name: settings.nick || 'You', cls: settings.cls}); s.myId = t.id; }
+  if (kind === 'local'){ const t = s.sim.addHuman({name: settings.nick || 'You'}); s.myId = t.id; }
   s.follow = null; s.camT = 0;
   session = s;
   const me = s.myId ? s.sim.getTank(s.myId) : s.sim.G.tanks[0];
@@ -226,7 +230,7 @@ function startNet(mode){
   const s = {kind:'net', mode, ws, myId:0, grid:new Uint8Array(GW*GH), counts:new Int32Array(16), paintable:1, obstacles:[], roster:new Map(),
              snaps:[], queue:[], offset:null, phase:'wait', time:S.MATCH, Y:null, meDisp:null, specialQ:false, joined:false, endAt:0};
   const timeout = setTimeout(() => { if (!s.joined){ setStatus('The server is waking up. This can take up to a minute on the free plan. Try again shortly.', true); $('playOnline').disabled = false; s.closing = true; try { ws.close(); } catch(e) {} } }, 15000);
-  ws.onopen = () => ws.send(JSON.stringify({t:'join', mode, name: settings.nick || 'Player', cls: settings.cls}));
+  ws.onopen = () => ws.send(JSON.stringify({t:'join', mode, name: settings.nick || 'Player'}));
   ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch(e){ return; } onNet(s, m, timeout); };
   ws.onclose = () => {
     clearTimeout(timeout); $('playOnline').disabled = false;
@@ -286,6 +290,8 @@ function handleEvent(e, myId){
     case 'gold': FX.feed.unshift({text:'A gold bucket appeared in the centre', mine:false, t:4}); FX.feed.length = Math.min(FX.feed.length, 4); break;
     case 'hit': FX.hits.push({x:e.x, y:e.y, t:0, T:0.2}); break;
     case 'lvl': FX.toast = {text:'Level ' + e.lv, t:1.6}; break;
+    case 'cls': if (session.kind !== 'demo') FX.toast = {text:'Class unlocked: pick one', t:2}; break;
+    case 'xform': if (session.kind !== 'demo') FX.toast = {text:'You are a ' + CLASSES[e.cls].label + ' now' + (e.refund ? ' · +' + e.refund*S.ROOKIE_COST + ' points back' : ''), t:2.4}; break;
     case 'toast': FX.toast = {text:e.text, t:1.8}; break;
     case 'shake': FX.shake = Math.max(FX.shake, e.s); break;
     case 'end': if (session.kind !== 'demo') showResults(); break;
@@ -384,7 +390,7 @@ let clk = 0, frameDt = 1/60;
 /* ---------- 2.5D player sprites ---------- */
 // Each player is an SVG drawing (same artwork as the design canvas) turned into an image per
 // facing, colour, gun, ink level and hit flash, then cached. Left-facing views mirror the right ones.
-const GUN_OF = {splat:'blaster', roller:'roller', bomber:'launcher', sprayer:'sprayer', liner:'sniper'};
+const GUN_OF = {rookie:'pistol', splat:'blaster', roller:'roller', bomber:'launcher', sprayer:'sprayer', liner:'sniper'};
 const SPR_UNIT = 1.4;    // world units per sprite unit
 const SPR_PX = 2.4;      // image pixels per sprite unit
 const SPR_FEET = 20;     // feet sit this far below the collision centre
@@ -397,8 +403,8 @@ function spriteSVG(base, col, gun, lvl, flash, fr){
   fr = fr || 0;
   const K = '#232A35', G = '#3A4250', W = '#FFFFFF';
   const C = flash ? W : col, D = flash ? '#E4E2DD' : darkRGB(col);
-  const len = {blaster:24, launcher:28, sprayer:22, sniper:40}[gun] || 24;
-  const th = {blaster:9, launcher:14, sprayer:10, sniper:6}[gun] || 9;
+  const len = {pistol:16, blaster:24, launcher:28, sprayer:22, sniper:40}[gun] || 24;
+  const th = {pistol:7, blaster:9, launcher:14, sprayer:10, sniper:6}[gun] || 9;
   const frac = [0, 0.34, 0.67, 1][lvl];
   const packStroke = lvl === 0 ? '#B8125C' : K;
   const st = w => 'stroke="' + K + '" stroke-width="' + w + '"';
@@ -430,6 +436,7 @@ function spriteSVG(base, col, gun, lvl, flash, fr){
     else if (gun === 'roller') s += `<line x1="2" y1="-24" x2="27" y2="-9" stroke="${K}" stroke-width="6" stroke-linecap="round"/><line x1="2" y1="-24" x2="27" y2="-9" stroke="${G}" stroke-width="3" stroke-linecap="round"/><circle cx="30" cy="-8.5" r="8.5" fill="${col}" ${st(3)}/><circle cx="30" cy="-8.5" r="2.5" fill="${K}"/>` + hand(4,-23) + hand(13,-18);
     else if (gun === 'launcher') s += `<rect x="-8" y="-34" width="36" height="15" rx="6" fill="${G}" ${st(2.5)}/><circle cx="4" cy="-26.5" r="8.5" fill="#5C6676" ${st(2.5)}/><rect x="26" y="-36" width="8" height="19" rx="3" fill="${col}" ${st(2.5)}/>` + hand(6,-18) + hand(20,-19);
     else if (gun === 'sprayer') s += `<path d="M-16 -26 C-14 -12 -4 -14 2 -22" fill="none" stroke="${K}" stroke-width="6" stroke-linecap="round"/><path d="M-16 -26 C-14 -12 -4 -14 2 -22" fill="none" stroke="${col}" stroke-width="3" stroke-linecap="round"/><rect x="0" y="-28" width="20" height="10" rx="3" fill="${G}" ${st(2.5)}/><path d="M19 -27 L33 -33 L33 -13 L19 -19 Z" fill="${col}" ${st(2.5)} stroke-linejoin="round"/>` + hand(4,-21) + hand(15,-22);
+    else if (gun === 'pistol') s += `<rect x="3" y="-24" width="6" height="9" rx="2" fill="${G}" ${st(2)}/><rect x="1" y="-29" width="18" height="8" rx="3" fill="${G}" ${st(2.5)}/><rect x="16" y="-30" width="6" height="10" rx="2.5" fill="${col}" ${st(2.5)}/>` + hand(6,-19) + hand(12,-23);
     else s += `<rect x="-9" y="-29" width="13" height="10" rx="3" fill="${G}" ${st(2.5)}/><rect x="2" y="-27" width="44" height="6" rx="2" fill="${G}" ${st(2.5)}/><rect x="8" y="-35" width="17" height="6" rx="3" fill="${K}"/><rect x="43" y="-28.5" width="6" height="9" rx="2" fill="${col}" ${st(2.5)}/>` + hand(3,-21) + hand(24,-22);
   } else if (base === 'S'){
     s += legsFront();
@@ -469,6 +476,15 @@ function getSprite(base, col, gun, lvl, flash, fr){
 }
 function dirOf(a){ return DIRS[((Math.round(a/(Math.PI/4)) % 8) + 8) % 8]; }
 function inkLevel(t){ if (!t.icap) return 3; const f = t.ink/t.icap; return f <= 0.03 ? 0 : f < 0.4 ? 1 : f < 0.75 ? 2 : 3; }
+// a short pop when a Rookie transforms into a class
+const seenCls = new Map(), popAt = new Map();
+function popScale(t){
+  const prev = seenCls.get(t.id);
+  if (prev !== t.cls){ seenCls.set(t.id, t.cls); if (prev === 'rookie') popAt.set(t.id, clk); }
+  const a = popAt.get(t.id); if (a === undefined) return 1;
+  const k = (clk - a)/0.5; if (k >= 1 || k < 0){ popAt.delete(t.id); return 1; }
+  return 1 + 0.35*Math.sin(k*Math.PI);
+}
 function drawPlayer(c, t, opts){
   opts = opts || {};
   const sc = opts.scale || 1;
@@ -557,7 +573,7 @@ function render(){
   for (const o of V.obstacles) if (o.x + o.w > x0 - 20 && o.x < x1 + 20 && o.y + o.h + 20 > y0 && o.y - WALL < y1 + 20) items.push({k:o.y + o.h, o});
   for (const t of V.tanks) if (vis(t)) items.push({k:t.y + SPR_FEET, t});
   items.sort((p, q) => p.k - q.k);
-  for (const it of items){ if (it.o) drawWall(ctx, it.o); else drawPlayer(ctx, it.t, {color: tankColor(V.mode, it.t)}); }
+  for (const it of items){ if (it.o) drawWall(ctx, it.o); else drawPlayer(ctx, it.t, {color: tankColor(V.mode, it.t), scale: popScale(it.t)}); }
   ctx.lineWidth = 2;
   for (const b of V.bullets){
     if (b.x < x0-30 || b.x > x1+30 || b.y < y0-40 || b.y > y1+30) continue;
@@ -686,7 +702,8 @@ function drawHUD(){
   ctx.fillStyle = ownerColor(V.mode, V.mode === 'teams' ? p.team : p.slot); rr(ctx, ix + 14*u, iy + hy + 32*u, (iw - 28*u)*clamp(p.ink/cap,0,1), 12*u, 6*u); ctx.fill();
   const hint = p.surface === 1 ? 'On your colour: +40% speed · regen on' : p.surface === -1 ? 'On enemy paint: slowed' : 'Neutral floor';
   text(merged && p.surface === 1 ? 'Your colour: fast + regen' : hint, ix + 14*u, iy + hy + 64*u, '400 ' + Math.round(13*u) + 'px ' + FB, p.surface === -1 ? ALERT : MUTED);
-  const lvlLine = 'Level ' + p.level + ' · ' + C.label;
+  const nUp = p.stats ? p.stats.reduce((a,b) => a+b, 0) : 0;
+  const lvlLine = 'Level ' + p.level + ' · ' + C.label + (p.cls !== 'rookie' ? '' : p.classPending ? (merged ? ' · pick class' : ' · pick your class') : merged ? ' · class ' + nUp + '/' + S.CLASS_AT : ' · class unlocks at ' + S.CLASS_AT + ' upgrades (' + nUp + '/' + S.CLASS_AT + ')');
   const xpFrac = p.level >= 30 ? 1 : clamp(p.xp/(p.xpn || 1), 0, 1);
   if (merged){
     text(lvlLine, ix + 14*u, iy + hy + 84*u, '500 ' + Math.round(13*u) + 'px ' + FD);
@@ -699,7 +716,7 @@ function drawHUD(){
     ctx.fillStyle = INK; rr(ctx, bx, by, bw*xpFrac, 12*u, 6*u); ctx.fill();
   }
   statsBox.style.bottom = (VH - iy + 10) + 'px';
-  if (touchCtl.used){
+  if (touchCtl.used && p.cls !== 'rookie'){
     const sb = specialBtn(); ctx.beginPath(); ctx.arc(sb.x, sb.y, sb.r, 0, Math.PI*2); ctx.fillStyle = p.specialCd > 0 ? FLOOR : '#FF2D87'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
     if (p.specialCd > 0){ ctx.beginPath(); ctx.moveTo(sb.x, sb.y); ctx.arc(sb.x, sb.y, sb.r - 4, -Math.PI/2, -Math.PI/2 + Math.PI*2*(1 - p.specialCd/(8*(1 - 0.10*(p.stats ? S.up(p, 'scd') : 0))))); ctx.closePath(); ctx.fillStyle = 'rgba(35,42,53,.18)'; ctx.fill(); }
     text(C.spec, sb.x, sb.y, '800 13px ' + FD, INK, 'center', 'middle');
@@ -725,10 +742,10 @@ function buildStatRows(cls){
   statRows.innerHTML = C.ups.map((u,i) => '<div class="srow"><span>' + u[1] + '</span><div class="pips">' + '<i></i>'.repeat(8) + '</div><button class="plus" id="up' + i + '" aria-label="Upgrade ' + u[1] + '" title="Key ' + (i+1) + '">+</button></div>').join('');
   for (let i=0;i<C.ups.length;i++) $('up' + i).addEventListener('click', e => { e.stopPropagation(); sendUpgrade(i); });
 }
-buildStatRows('splat');
+buildStatRows('rookie');
 function syncStats(){
   const p = session && session.kind !== 'demo' && $('results').hidden && $('pause').hidden && V ? V.me : null;
-  const show = !!(p && p.stats && !p.dead && p.points >= UPGRADE_COST && p.stats.some(v => v < 8));
+  const show = !!(p && p.stats && !p.dead && !p.classPending && p.points >= S.upgradeCost(p) && p.stats.some(v => v < 8));
   if (statsBox.hidden === show) statsBox.hidden = !show;
   if (!show) return;
   if (p.cls !== statsCls){ buildStatRows(p.cls); statsKey = ''; }
@@ -738,33 +755,35 @@ function syncStats(){
   statRows.querySelectorAll('.srow').forEach((row,i) => { row.querySelectorAll('i').forEach((pip,k) => pip.classList.toggle('on', k < p.stats[i])); $('up' + i).disabled = p.stats[i] >= 8; });
 }
 
-/* ---------- DOM: class pickers (title + results) ---------- */
-// The class is chosen before a match. On the results screen it applies from the next match.
-const PICK_COL = PCOL[1], pickBtns = [];
-function buildPicks(box){
-  for (const k of CLASS_KEYS){
+/* ---------- DOM: class menu (pops up after 5 upgrades; you keep playing) ---------- */
+const clsMenu = $('clsMenu'), clsCards = $('clsCards');
+let menuSentAt = -1e9;
+function buildClassMenu(col){
+  clsCards.innerHTML = '';
+  $('clsMenuNote').textContent = touchCtl.used ? 'Keep playing · tap one' : 'Keep playing · click or press 1–4';
+  CLASS_KEYS.forEach((k, i) => {
     const C = CLASSES[k];
-    const b = document.createElement('button'); b.className = 'pick'; b.type = 'button'; b.dataset.k = k;
-    b.setAttribute('aria-pressed', String(k === settings.cls)); b.title = C.desc;
+    const b = document.createElement('button'); b.className = 'pick'; b.type = 'button'; b.title = C.desc + '. ' + C.specLong + '.';
     const c = document.createElement('canvas'); c.width = 130; c.height = 130;
-    b.appendChild(c); b.appendChild(document.createTextNode(C.label));
-    b.addEventListener('click', () => setClass(k));
-    box.appendChild(b); pickBtns.push(b);
+    b.appendChild(c);
+    b.insertAdjacentHTML('beforeend', '<kbd>' + (i+1) + '</kbd><b>' + C.label + '</b><small>' + C.tag + '</small>');
+    b.addEventListener('mousedown', e => e.stopPropagation());
+    b.addEventListener('click', e => { e.stopPropagation(); chooseClass(k); });
+    clsCards.appendChild(b);
     const g = c.getContext('2d');
     const ft = {x:60, y:94, aim:Math.PI/4, cls:k, slot:1, flash:0, moving:false, id:0};
-    const draw = () => { g.clearRect(0, 0, 130, 130); drawPlayer(g, ft, {scale:1, lvl:3, color:PICK_COL}); };
-    const e = getSprite('SE', PICK_COL, GUN_OF[k], 3, false, 0); if (e.ready) draw(); else e.cbs.push(draw);
-  }
+    const draw = () => { g.clearRect(0, 0, 130, 130); drawPlayer(g, ft, {scale:1, lvl:3, color:col}); };
+    const e = getSprite('SE', col, GUN_OF[k], 3, false, 0); if (e.ready) draw(); else e.cbs.push(draw);
+  });
 }
-function setClass(k){
-  if (!CLASS_KEYS.includes(k)) return;
-  settings.cls = k; saveSettings();
-  for (const b of pickBtns) b.setAttribute('aria-pressed', String(b.dataset.k === k));
-  const C = CLASSES[k];
-  $('clsInfo').innerHTML = '<b>' + C.desc + '.</b> ' + C.specLong + '.<br>Upgrades: ' + C.ups.map(u => u[1].toLowerCase()).join(', ');
-  if (session && session.kind === 'net' && session.joined) sendClass(k);
+function chooseClass(k){ sendClass(k); menuSentAt = performance.now(); clsMenu.hidden = true; }
+const menuOpen = () => !clsMenu.hidden;
+function syncClassMenu(){
+  const p = session && session.kind !== 'demo' && $('results').hidden && $('pause').hidden && V ? V.me : null;
+  const show = !!(p && p.classPending && p.cls === 'rookie' && performance.now() - menuSentAt > 1200);
+  if (show && clsMenu.hidden) buildClassMenu(tankColor(V.mode, p));
+  if (clsMenu.hidden === show) clsMenu.hidden = !show;
 }
-buildPicks($('picks')); buildPicks($('resPicks')); setClass(settings.cls);
 
 /* ---------- DOM: results ---------- */
 function showResults(){
@@ -809,7 +828,7 @@ const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').match
 $('hint').textContent = coarse ? 'Left thumb moves. Right thumb aims and shoots. Tap the pink button for your class special.' : 'WASD to move · mouse to aim · click to shoot · Space for special · 1–6 to upgrade';
 function setStatus(t, err){ const el = $('status'); el.textContent = t || ''; el.classList.toggle('err', !!err); }
 function hideAllScreens(){ $('pause').hidden = true; $('title').hidden = true; $('results').hidden = true; mouse.down = false; touchCtl.left = touchCtl.right = null; }
-function toTitle(){ closeNet(); $('pause').hidden = true; $('results').hidden = true; statsBox.hidden = true; $('title').hidden = false; startLocal('demo', 'ffa'); refreshOnline(); }
+function toTitle(){ closeNet(); clsMenu.hidden = true; $('pause').hidden = true; $('results').hidden = true; statsBox.hidden = true; $('title').hidden = false; startLocal('demo', 'ffa'); refreshOnline(); }
 $('playOnline').addEventListener('click', () => startNet(settings.mode));
 $('playLocal').addEventListener('click', () => { hideAllScreens(); setStatus(''); startLocal('local', settings.mode); statsKey = ''; });
 nick.addEventListener('keydown', e => { if (e.key === 'Enter') startNet(settings.mode); });
@@ -841,7 +860,8 @@ window.addEventListener('keydown', e => {
   if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code) && inGame()) e.preventDefault();
   if (e.code === 'Space' && !e.repeat) queueSpecial();
   keys.add(e.code);
-  if (inGame() && /^Digit[1-6]$/.test(e.code)) sendUpgrade(Number(e.code.slice(5)) - 1);
+  if (inGame() && menuOpen() && /^Digit[1-4]$/.test(e.code)) chooseClass(CLASS_KEYS[Number(e.code.slice(5)) - 1]);
+  else if (inGame() && /^Digit[1-6]$/.test(e.code)) sendUpgrade(Number(e.code.slice(5)) - 1);
 });
 window.addEventListener('keyup', e => keys.delete(e.code));
 window.addEventListener('blur', () => { keys.clear(); mouse.down = false; });
@@ -853,7 +873,7 @@ cv.addEventListener('touchstart', e => {
   e.preventDefault(); touchCtl.used = true; mouse.active = false;
   for (const t of e.changedTouches){
     const x = t.clientX, y = t.clientY, sb = specialBtn();
-    if (V && V.me && Math.hypot(x - sb.x, y - sb.y) < sb.r + 8){ queueSpecial(); continue; }
+    if (V && V.me && V.me.cls !== 'rookie' && Math.hypot(x - sb.x, y - sb.y) < sb.r + 8){ queueSpecial(); continue; }
     if (x < VW/2 && !touchCtl.left) touchCtl.left = {id:t.identifier, ox:x, oy:y, x, y};
     else if (!touchCtl.right) touchCtl.right = {id:t.identifier, ox:x, oy:y, x, y};
   }
@@ -907,6 +927,7 @@ function frame(now){
   if (s.kind === 'net' && !$('results').hidden){ const left = Math.max(0, Math.ceil((s.endAt - now)/1000)); $('nextNote').textContent = left > 0 ? 'Next match in ' + left + ' s' : 'Starting…'; }
   render();
   syncStats();
+  syncClassMenu();
   requestAnimationFrame(frame);
 }
 startLocal('demo', 'ffa');
