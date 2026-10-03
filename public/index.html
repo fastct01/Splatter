@@ -30,9 +30,6 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--floor);color:var
 .label,label{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:.02em}
 input[type=text]{height:48px;box-sizing:border-box;padding:0 14px;border:3px solid var(--ink);border-radius:12px;font:500 17px var(--body);color:var(--ink);background:var(--panel);width:100%}
 input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
-.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(34px,1fr));gap:6px}
-.sw{height:34px;border-radius:10px;border:2px solid var(--rock);cursor:pointer;padding:0}
-.sw[aria-pressed=true]{border:3px solid var(--ink);box-shadow:inset 0 0 0 2px var(--panel)}
 .modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .mode{height:48px;border-radius:12px;border:3px solid var(--ink);background:var(--panel);color:var(--ink);font:500 15px var(--display);cursor:pointer}
 .mode[aria-pressed=true]{background:var(--ink);color:var(--panel)}
@@ -93,8 +90,6 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
     <p class="tag">Paint the floor. Own the arena.</p>
     <label for="nick">Nickname</label>
     <input id="nick" type="text" maxlength="16" placeholder="Enter a name" autocomplete="off">
-    <div class="label" id="colourLabel">Your colour</div>
-    <div id="swatches" class="swatches" role="group" aria-labelledby="colourLabel"></div>
     <div class="label">Mode</div>
     <div class="modes">
       <button id="mFfa" class="mode" aria-pressed="true">Free-for-all · 15</button>
@@ -161,8 +156,8 @@ function fmtTime(s){ s = Math.max(0, Math.ceil(s)); return Math.floor(s/60) + ':
 function lerpAngle(a, b, u){ let d = b - a; while (d > Math.PI) d -= Math.PI*2; while (d < -Math.PI) d += Math.PI*2; return a + d*u; }
 
 /* ---------- settings ---------- */
-const settings = {nick:'', slot:1, mode:'ffa'};
-try { const s = JSON.parse(localStorage.getItem('splatter-settings') || '{}'); if (s.nick) settings.nick = String(s.nick).slice(0,16); if (s.slot>=1 && s.slot<=15) settings.slot = s.slot; if (s.mode==='teams') settings.mode = 'teams'; } catch(e) {}
+const settings = {nick:'', mode:'ffa'};
+try { const s = JSON.parse(localStorage.getItem('splatter-settings') || '{}'); if (s.nick) settings.nick = String(s.nick).slice(0,16); if (s.mode==='teams') settings.mode = 'teams'; } catch(e) {}
 function saveSettings(){ try { localStorage.setItem('splatter-settings', JSON.stringify(settings)); } catch(e) {} }
 
 /* ---------- paint layer ---------- */
@@ -203,7 +198,7 @@ function startLocal(kind, mode){
   s.sim = S.createSim({mode,
     onStamp: (x,y,r,o,rot) => drawStamp(mode, x, y, r, o, rot),
     onEvent: e => { if (s === session) handleEvent(e, s.myId); }});
-  if (kind === 'local'){ const t = s.sim.addHuman({name: settings.nick || 'You', slot: settings.slot}); s.myId = t.id; }
+  if (kind === 'local'){ const t = s.sim.addHuman({name: settings.nick || 'You'}); s.myId = t.id; }
   s.follow = null; s.camT = 0;
   session = s;
   const me = s.myId ? s.sim.getTank(s.myId) : s.sim.G.tanks[0];
@@ -220,7 +215,7 @@ function startNet(mode){
   const s = {kind:'net', mode, ws, myId:0, grid:new Uint8Array(GW*GH), counts:new Int32Array(16), paintable:1, obstacles:[], roster:new Map(),
              snaps:[], queue:[], offset:null, phase:'wait', time:S.MATCH, Y:null, meDisp:null, specialQ:false, joined:false, endAt:0};
   const timeout = setTimeout(() => { if (!s.joined){ setStatus('The server is waking up. This can take up to a minute on the free plan. Try again shortly.', true); $('playOnline').disabled = false; s.closing = true; try { ws.close(); } catch(e) {} } }, 15000);
-  ws.onopen = () => ws.send(JSON.stringify({t:'join', mode, name: settings.nick || 'Player', slot: settings.slot}));
+  ws.onopen = () => ws.send(JSON.stringify({t:'join', mode, name: settings.nick || 'Player'}));
   ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch(e){ return; } onNet(s, m, timeout); };
   ws.onclose = () => {
     clearTimeout(timeout); $('playOnline').disabled = false;
@@ -739,7 +734,7 @@ function syncStats(){
 const classGrid = $('classGrid');
 function openClassSelect(){
   classGrid.innerHTML = '';
-  const mySlot = V && V.me ? V.me.slot : settings.slot;
+  const mySlot = V && V.me ? V.me.slot : 1;
   for (const k of CLASS_KEYS){
     const C = CLASSES[k];
     const b = document.createElement('button'); b.className = 'cls'; b.type = 'button';
@@ -791,8 +786,6 @@ function showResults(){
 }
 
 /* ---------- DOM: title ---------- */
-const sw = $('swatches');
-for (let s=1;s<=15;s++){ const b = document.createElement('button'); b.className = 'sw'; b.type = 'button'; b.style.background = PCOL[s]; b.setAttribute('aria-label', PNAME[s]); b.setAttribute('aria-pressed', String(s === settings.slot)); b.addEventListener('click', () => { settings.slot = s; saveSettings(); sw.querySelectorAll('.sw').forEach((x,k) => x.setAttribute('aria-pressed', String(k+1 === s))); }); sw.appendChild(b); }
 const nick = $('nick'); nick.value = settings.nick;
 nick.addEventListener('input', () => { settings.nick = nick.value.trim().slice(0,16); saveSettings(); });
 function setMode(m){ settings.mode = m; saveSettings(); $('mFfa').setAttribute('aria-pressed', String(m === 'ffa')); $('mTeams').setAttribute('aria-pressed', String(m === 'teams')); }

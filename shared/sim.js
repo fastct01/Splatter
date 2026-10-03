@@ -152,13 +152,11 @@ export function createSim(opts){
   }
 
   function addHuman(o){
-    const want = o.slot >= 1 && o.slot <= 15 ? o.slot : 1;
     if (!useBots){
       if (G.tanks.length >= MAX_PLAYERS) return null;
       let team = 0;
       if (mode === 'teams'){ const c = [0,0,0,0]; for (const t of G.tanks) c[t.team]++; team = shuffle([1,2,3]).sort((a,b) => c[a] - c[b])[0]; if (c[team] >= 5) return null; }
-      const slot = G.tanks.some(t => t.slot === want) ? freeSlots()[0] : want;
-      const t = makeTank({name:o.name || 'Player', human:true, slot, team});
+      const t = makeTank({name:o.name || 'Player', human:true, slot:freeSlots()[0], team});
       G.tanks.push(t); spawnTank(t);
       onEvent({k:'roster'});
       return t;
@@ -171,13 +169,11 @@ export function createSim(opts){
       const order = shuffle([1,2,3]).sort((a,b) => hc[a] - hc[b]);
       const team = order.find(tm => bots.some(b => b.team === tm));
       const pool = bots.filter(b => b.team === team);
-      victim = pool.find(b => b.slot === want) || pool[Math.floor(Math.random()*pool.length)];
+      victim = pool[Math.floor(Math.random()*pool.length)];
     } else {
-      victim = bots.find(b => b.slot === want) || bots[Math.floor(Math.random()*bots.length)];
+      victim = bots[Math.floor(Math.random()*bots.length)];
     }
-    let slot = victim.slot;
-    if (slot !== want){ const holder = G.tanks.find(t => t.slot === want); if (holder && !holder.human){ holder.slot = slot; slot = want; } }
-    const t = makeTank({name:o.name || 'Player', human:true, slot, team:victim.team});
+    const t = makeTank({name:o.name || 'Player', human:true, slot:victim.slot, team:victim.team});
     G.tanks[G.tanks.indexOf(victim)] = t;
     spawnTank(t);
     onEvent({k:'roster'});
