@@ -676,7 +676,7 @@ function drawHUD(){
     const ch = 138*u; card(1, R - 176*u, T0 + 92*u); card(2, R - 176*u, T0 + 92*u + ch); card(3, R - 176*u, T0 + 92*u + 2*ch);
   }
   const C = CLASSES[p.cls], cap = p.icap || 100;
-  const iw = (merged ? 210 : 270)*u, ih = (merged ? 140 : 120)*u, ix = L, iy = B0 - ih, hy = 36*u;
+  const iw = (merged ? 210 : 270)*u, ih = (merged ? 150 : 130)*u, ix = L, iy = B0 - ih, hy = 46*u;
   panel(ix, iy, iw, ih, u);
   const fs = '500 ' + Math.round(14*u) + 'px ' + FB, hf = clamp((p.hp || 0)/(p.mhp || 100), 0, 1);
   text('Health', ix + 14*u, iy + 22*u, fs);
@@ -726,15 +726,13 @@ for (let i=0;i<6;i++) $('up' + i).addEventListener('click', e => { e.stopPropaga
 let statsKey = '';
 function syncStats(){
   const p = session && session.kind !== 'demo' && $('results').hidden && $('pause').hidden && V ? V.me : null;
-  const show = !!(p && p.stats && !p.dead && p.stats.some(v => v < 8));
+  const show = !!(p && p.stats && !p.dead && p.points >= UPGRADE_COST && p.stats.some(v => v < 8));
   if (statsBox.hidden === show) statsBox.hidden = !show;
   if (!show) return;
   const key = p.points + '|' + p.stats.join(',');
   if (key === statsKey) return; statsKey = key;
-  const ok = p.points >= UPGRADE_COST;
-  statsBox.classList.toggle('locked', !ok);
-  $('ptsLeft').textContent = ok ? p.points + ' points' : p.points + ' / ' + UPGRADE_COST + ' points';
-  statRows.querySelectorAll('.srow').forEach((row,i) => { row.querySelectorAll('i').forEach((pip,k) => pip.classList.toggle('on', k < p.stats[i])); $('up' + i).disabled = !ok || p.stats[i] >= 8; });
+  $('ptsLeft').textContent = p.points + ' points';
+  statRows.querySelectorAll('.srow').forEach((row,i) => { row.querySelectorAll('i').forEach((pip,k) => pip.classList.toggle('on', k < p.stats[i])); $('up' + i).disabled = p.stats[i] >= 8; });
 }
 
 /* ---------- DOM: class select ---------- */
