@@ -28,6 +28,8 @@ export const OBJ = {can:{hp:18,mass:2,pts:1,r:22,splat:50}, barrel:{hp:110,mass:
 // Share of normal spawns: triangles are rare (about 1 in 12)
 export const TRIANGLE_CHANCE = 0.08, BARREL_CHANCE = 0.22;
 // damage a player takes when bumping into a floating object (at most once every BUMP_CD seconds per object)
+export const MOVE_SCALE = 0.85;   // everyone moves 15% slower, except on enemy paint (which already slows you)
+export const ROLLER_RAM = 0.7;   // Roller collisions hurt 30% less
 export const BUMP_DMG = {can:3, gold:3, triangle:12, barrel:22}, BUMP_CD = 0.6, ROOKIE_BUMP = 3;   // Rookies take 3x bump damage
 export const OBJ_TARGET = 52;   // floating objects kept on the (bigger) map
 export function randomObjectType(){ const r = Math.random(); return r < TRIANGLE_CHANCE ? 'triangle' : r < TRIANGLE_CHANCE + BARREL_CHANCE ? 'barrel' : 'can'; }
@@ -449,7 +451,7 @@ export function createSim(opts){
     const acc = 1400*t.am*(charge ? 1.6 : 1);
     t.vx += mx*acc*dt; t.vy += my*acc*dt;
     const drag = Math.exp(-4*dt); t.vx *= drag; t.vy *= drag;
-    const maxS = 260/Math.sqrt(C.mass)*t.sm*(1 + (t.cls === 'roller' ? 0.05 : 0.04)*up(t, 'speed'))*(charge ? 1.6 : 1);
+    const maxS = 260/Math.sqrt(C.mass)*t.sm*(1 + (t.cls === 'roller' ? 0.05 : 0.04)*up(t, 'speed'))*(charge ? 1.6 : 1)*(t.surface === -1 ? 1 : MOVE_SCALE);
     let sp = Math.hypot(t.vx, t.vy); if (sp > maxS){ t.vx *= maxS/sp; t.vy *= maxS/sp; sp = maxS; }
     t.moving = sp > 30;
     t.x += t.vx*dt; t.y += t.vy*dt;
@@ -459,7 +461,7 @@ export function createSim(opts){
     if (CLASSES[t.cls].flatRefill) t.ink += cap*(moving ? 0.30 : 0.45)*refill*(t.surface === 1 ? 1.05 : 1)*dt;   // Blaster: same refill on any floor, only +5% on its own paint
     else if (t.surface === 1) t.ink += cap*(moving ? 0.30 : 0.45)*refill*dt; else if (t.surface === 0) t.ink += cap*0.06*refill*dt;
     if (t.ink > cap) t.ink = cap;
-    if (t.surface === 1 && since > 2) t.hp += 6*dt; else if (t.surface === 0 && since > 4) t.hp += 1*dt;
+    if (t.surface === 1 && since > 2) t.hp += 6*(1 + 0.05*up(t, 'hp'))*dt;   // each Health upgrade heals 5% faster on your colour else if (t.surface === 0 && since > 4) t.hp += 1*dt;
     if (t.surface === -1 && t.protect <= 0) t.hp = Math.max(Math.min(t.hp,1), t.hp - 3*dt);
     if (t.hp > t.mhp) t.hp = t.mhp;
     if (t.input.fire && t.reload <= 0) fire(t);
@@ -608,7 +610,8 @@ export function createSim(opts){
         const close = -vn, J = -(1 + 0.4)*vn/(ia + ib);
         a.vx -= J*ia*nx; a.vy -= J*ia*ny; b.vx += J*ib*nx; b.vy += J*ib*ny;
         if (close > 150){
-          const ca = (a.cls === 'roller' && a.specialT > 0 ? 2 : 1)*(1 + 0.15*up(a, 'ram')), cb = (b.cls === 'roller' && b.specialT > 0 ? 2 : 1)*(1 + 0.15*up(b, 'ram'));
+          const ram = u => (u.cls === 'roller' ? ROLLER_RAM : 1)*(u.cls === 'roller' && u.specialT > 0 ? 2 : 1)*(1 + 0.15*up(u, 'ram'));
+          const ca = ram(a), cb = ram(b);
           damage(a, 0.08*close*mb*cb, b); damage(b, 0.08*close*ma*ca, a);
         }
       }
