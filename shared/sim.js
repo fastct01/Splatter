@@ -40,7 +40,8 @@ export function up(t, key){ const u = CLASSES[t.cls].ups; for (let i=0;i<u.lengt
 // how a player looks: one tier per upgrade slot (0 below level 3, 1 from level 3, 2 from level 6), base 3, +729 when all are maxed
 export function lookCode(t){ const st = t.stats || []; let c = 0, all = true; for (let i=0;i<6;i++){ const v = st[i] || 0; c = c*3 + (v >= 6 ? 2 : v >= 3 ? 1 : 0); if (v < 8) all = false; } return c + (all ? 729 : 0); }
 export const maxHpOf = t => (CLASSES[t.cls].hp || 100) + (t.cls === 'roller' ? 15 : 12)*up(t, 'hp');
-export const inkCapOf = t => 100*(1 + 0.12*up(t, 'ink'));
+export const INK_BASE = 70;   // base ink tank for every class (was 100)
+export const inkCapOf = t => INK_BASE*(1 + 0.12*up(t, 'ink'));
 export const randomClass = () => CLASS_KEYS[Math.floor(Math.random()*CLASS_KEYS.length)];
 export const START_INK = 0.4;
 const TAU = Math.PI*2;
@@ -298,7 +299,7 @@ export function createSim(opts){
     const key = CLASSES[t.cls].ups[i][0];
     t.stats[i]++; t.points -= cost;
     if (key === 'hp') t.hp += t.cls === 'roller' ? 15 : 12;
-    if (key === 'ink') t.ink += 12;
+    if (key === 'ink') t.ink += INK_BASE*0.12;
     t.level = t.stats.reduce((a,b) => a+b, 0);
     if (t.human) onEvent({k:'lvl', id:t.id, lv:t.level});
     refresh(t);
