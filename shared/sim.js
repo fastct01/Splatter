@@ -7,7 +7,7 @@ export const PNAME = ['','Pink','Red','Orange','Amber','Yellow','Lime','Green','
 export const TCOL = [null,'#2D8CFF','#FF8A1F','#FFD21F'];
 export const TNAME = ['','Blue','Orange','Yellow'];
 export const CLASSES = {
-  rookie:    {label:'Rookie', r:28, mass:1.0, hp:100, rate:6.25, speed:490, range:480, dmg:10, ink:3, splat:40, br:7, desc:'Starter with a basic paint pistol', tag:'', spec:'', specLong:'',
+  rookie:    {label:'Rookie', r:28, mass:1.0, hp:100, rate:1, speed:490, range:480, dmg:10, ink:3, splat:40, br:7, desc:'Starter with a basic paint pistol', tag:'', spec:'', specLong:'',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
   splat:     {label:'Blaster', r:30, mass:1.0, hp:100, rate:3, speed:525, range:520, dmg:12, ink:3, splat:42, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
@@ -27,6 +27,8 @@ export const OBJ_TYPES = ['can','barrel','gold','triangle'];
 export const OBJ = {can:{hp:35,mass:2,xp:15,r:22,splat:50}, barrel:{hp:110,mass:6,xp:60,r:30,splat:120}, gold:{hp:200,mass:4,xp:200,r:26,splat:160}, triangle:{hp:75,mass:3,xp:45,r:26,splat:75}};
 // Share of normal spawns: triangles are rare (about 1 in 12)
 export const TRIANGLE_CHANCE = 0.08, BARREL_CHANCE = 0.22;
+// damage a player takes when bumping into a floating object (at most once every BUMP_CD seconds per object)
+export const BUMP_DMG = {can:3, gold:3, triangle:12, barrel:22}, BUMP_CD = 0.6;
 export const OBJ_TARGET = 52;   // floating objects kept on the (bigger) map
 export function randomObjectType(){ const r = Math.random(); return r < TRIANGLE_CHANCE ? 'triangle' : r < TRIANGLE_CHANCE + BARREL_CHANCE ? 'barrel' : 'can'; }
 const BOT_NAMES = ['blue_wave','limelight','tangerine','sunny','purp','aqua','redline','honey','moss','minty','skyhigh','indigo','magenta','cocoa','splatcat','drip','smudge','inky','roller_rex','blotto','gloss','tint'];
@@ -242,7 +244,7 @@ export function createSim(opts){
       }
       [x,y] = best || [WW/2, WH/2];
     }
-    Object.assign(t, {x, y, vx:0, vy:0, dead:false, protect:2, reload:0, damagers:{}, specialT:0});
+    Object.assign(t, {x, y, vx:0, vy:0, dead:false, protect:2, reload:0, damagers:{}, specialT:0, bump:{}});
     refresh(t); t.hp = t.mhp; t.ink = t.icap*START_INK;
   }
 
@@ -614,6 +616,12 @@ export function createSim(opts){
         const vn = (o.vx - t.vx)*nx + (o.vy - t.vy)*ny;
         if (vn < 0){ const J = -1.5*vn/(it+io); t.vx -= J*it*nx; t.vy -= J*it*ny; o.vx += J*io*nx; o.vy += J*io*ny; }
         damageObj(o, 0.5, t);
+        // bumping hurts: a little from paint tins, more from prisms, most from paint drums
+        if (!t.bump) t.bump = {};
+        if (BUMP_DMG[o.type] && (t.bump[o.id] === undefined || G.clock - t.bump[o.id] >= BUMP_CD)){
+          t.bump[o.id] = G.clock; damage(t, BUMP_DMG[o.type], null);
+          if (t.human && t.protect <= 0) onEvent({k:'ring', x:t.x, y:t.y, r:o.r + t.r, o:0});
+        }
       }
     }
     for (let i=0;i<O.length;i++) for (let j=i+1;j<O.length;j++){
