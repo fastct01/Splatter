@@ -44,6 +44,8 @@ export function lookCode(t){ const st = t.stats || []; let c = 0, all = true; fo
 export const maxHpOf = t => (CLASSES[t.cls].hp || 100) + (t.cls === 'roller' ? 15 : 12)*up(t, 'hp');
 export const INK_BASE = 70;   // base ink tank for every class (was 100)
 export const inkCapOf = t => INK_BASE*(1 + 0.12*up(t, 'ink'));
+// ink refills slowly until you upgrade the Ink tank: 30% of the old speed, +35% of that per upgrade level (level 8 = a bit faster than before)
+export const inkRefillOf = t => 0.3*(1 + 0.35*up(t, 'ink'));
 export const randomClass = () => CLASS_KEYS[Math.floor(Math.random()*CLASS_KEYS.length)];
 export const START_INK = 0.4;
 const TAU = Math.PI*2;
@@ -417,7 +419,7 @@ export function createSim(opts){
       const dx = ai.wp[0] - t.x, dy = ai.wp[1] - t.y, d = Math.hypot(dx,dy) || 1;
       mx = dx/d; my = dy/d;
       aim = Math.atan2(dy,dx) + Math.sin(G.clock*2 + t.id)*0.6; t.aimDist = rng*0.8;
-      fireOn = t.ink > t.icap*0.45;
+      fireOn = t.ink > t.icap*0.15;
     }
     const lx = t.x + mx*(t.r + 70), ly = t.y + my*(t.r + 70);
     if (inObstacle(lx, ly, 10) || lx < 40 || ly < 40 || lx > WW-40 || ly > WH-40){ const nx = -my*ai.strafe, ny = mx*ai.strafe; mx = nx; my = ny; }
@@ -447,7 +449,8 @@ export function createSim(opts){
     t.x += t.vx*dt; t.y += t.vy*dt;
     t.reload -= dt; t.specialCd -= dt; t.specialT -= dt; t.protect -= dt; t.flash -= dt;
     const cap = t.icap, moving = sp > 30, since = G.clock - t.lastHit;
-    if (t.surface === 1) t.ink += cap*(moving ? 0.30 : 0.45)*dt; else if (t.surface === 0) t.ink += cap*0.06*dt;
+    const refill = inkRefillOf(t);
+    if (t.surface === 1) t.ink += cap*(moving ? 0.30 : 0.45)*refill*dt; else if (t.surface === 0) t.ink += cap*0.06*refill*dt;
     if (t.ink > cap) t.ink = cap;
     if (t.surface === 1 && since > 2) t.hp += 6*dt; else if (t.surface === 0 && since > 4) t.hp += 1*dt;
     if (t.surface === -1 && t.protect <= 0) t.hp = Math.max(Math.min(t.hp,1), t.hp - 3*dt);
