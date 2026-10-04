@@ -1,4 +1,4 @@
-// Splatter game server: serves the client and runs authoritative game rooms over WebSockets.
+// Color Duel game server: serves the client and runs authoritative game rooms over WebSockets.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -190,7 +190,7 @@ setInterval(() => {
   }
 }, 10000);
 
-server.listen(PORT, () => console.log(`Splatter listening on ${PORT}`));
+server.listen(PORT, () => console.log(`Color Duel listening on ${PORT}`));
 
 function shutdown(){
   console.log('shutting down');

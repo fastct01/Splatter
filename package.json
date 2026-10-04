@@ -2,7 +2,7 @@
   "name": "splatter",
   "version": "0.1.0",
   "private": true,
-  "description": "Splatter: a top-down paint shooter for up to 15 players, free-for-all or 5 v 5 v 5 teams.",
+  "description": "Color Duel: a top-down paint shooter for up to 15 players, free-for-all or 5 v 5 v 5 teams.",
   "type": "module",
   "main": "server/index.js",
   "scripts": {

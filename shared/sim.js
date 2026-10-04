@@ -1,4 +1,4 @@
-// Splatter shared simulation: runs on the server (authoritative) and in the browser (practice mode).
+// Color Duel shared simulation: runs on the server (authoritative) and in the browser (practice mode).
 // No DOM, no Node APIs.
 
 export const WW = 3600, WH = 2160, CELL = 12, GW = 300, GH = 180, MATCH = 180, MAX_PLAYERS = 15;
