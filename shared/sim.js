@@ -1,7 +1,7 @@
 // Bubble Arena shared simulation: runs on the server (authoritative) and in the browser (practice mode).
 // No DOM, no Node APIs.
 
-export const WW = 3600, WH = 2160, CELL = 12, GW = 300, GH = 180, MATCH = 180, MAX_PLAYERS = 15;
+export const WW = 4320, WH = 2592, CELL = 12, GW = 360, GH = 216, MATCH = 180, MAX_PLAYERS = 15;
 export const PCOL = ['#E4E2DD','#FF2D87','#FF3B3B','#FF8A1F','#FFB020','#FFD21F','#9BE22D','#2DBE5A','#5EE6B0','#1FD6D0','#4FC3FF','#2D8CFF','#4B5BFF','#9B5CFF','#E040FB','#A0622D'];
 export const PNAME = ['','Pink','Red','Orange','Amber','Yellow','Lime','Green','Mint','Aqua','Sky','Blue','Indigo','Purple','Magenta','Cocoa'];
 export const TCOL = [null,'#2D8CFF','#FF8A1F','#FFD21F'];
@@ -27,6 +27,7 @@ export const OBJ_TYPES = ['can','barrel','gold','triangle'];
 export const OBJ = {can:{hp:35,mass:2,xp:10,r:22,splat:50}, barrel:{hp:110,mass:6,xp:50,r:30,splat:120}, gold:{hp:200,mass:4,xp:200,r:26,splat:160}, triangle:{hp:75,mass:3,xp:35,r:26,splat:75}};
 // Share of normal spawns: triangles are rare (about 1 in 12)
 export const TRIANGLE_CHANCE = 0.08, BARREL_CHANCE = 0.22;
+export const OBJ_TARGET = 52;   // floating objects kept on the (bigger) map
 export function randomObjectType(){ const r = Math.random(); return r < TRIANGLE_CHANCE ? 'triangle' : r < TRIANGLE_CHANCE + BARREL_CHANCE ? 'barrel' : 'can'; }
 const BOT_NAMES = ['blue_wave','limelight','tangerine','sunny','purp','aqua','redline','honey','moss','minty','skyhigh','indigo','magenta','cocoa','splatcat','drip','smudge','inky','roller_rex','blotto','gloss','tint'];
 
@@ -120,7 +121,7 @@ export function createSim(opts){
 
   function genObstacles(){
     const obs = []; let tries = 0;
-    while (obs.length < 15 && tries < 3000){
+    while (obs.length < 20 && tries < 4000){
       tries++;
       const w = Math.round(rand(60,220)), h = Math.round(rand(60,220));
       const x = Math.round(380 + Math.random()*(WW-760-w)), y = Math.round(260 + Math.random()*(WH-640-h));
@@ -133,7 +134,7 @@ export function createSim(opts){
 
   function makeTank(o){
     const t = Object.assign({id:nextId++, name:'', human:false, slot:1, team:0, x:0, y:0, vx:0, vy:0, aim:0, aimDist:400, cls:'rookie', r:28,
-      level:1, xp:0, xpTotal:0, points:0, ptsXp:0, stats:[0,0,0,0,0,0], hp:100, ink:100, reload:0, specialCd:0, specialT:0, cluster:false,
+      level:0, xp:0, xpTotal:0, points:0, ptsXp:0, stats:[0,0,0,0,0,0], hp:100, ink:100, reload:0, specialCd:0, specialT:0, cluster:false,
       surface:0, sm:1, am:1, lastHit:-99, dead:false, respawnT:0, protect:2, flash:0, cellsPainted:0, paintAcc:0, splats:0, deaths:0,
       trailAcc:0, spinA:0, spinReload:0, moving:false, damagers:{}, killedBy:'', classPending:false, charge:false, spinning:false,
       ai:{think:0, wpT:0, strafe:Math.random()<0.5?1:-1, err:0, strafeT:0},
@@ -166,7 +167,8 @@ export function createSim(opts){
     G.tanks = humans.map(h => makeTank({id:h.id, name:h.name, human:true, slot:h.slot, team:h.team}));
     for (const t of G.tanks) spawnTank(t);
     fillBots();
-    for (let k=0;k<40;k++) spawnObject(randomObjectType());
+    for (let k=0;k<OBJ_TARGET;k++) spawnObject(randomObjectType());
+    G.spawnT = 0;
     onEvent({k:'roster'});
   }
 
@@ -245,13 +247,19 @@ export function createSim(opts){
 
   function spawnObject(type, near){
     const d = OBJ[type];
-    for (let k=0;k<30;k++){
+    // try several spots and keep the one furthest from other objects and players, so objects spread over the map
+    let best = null, bs = -1;
+    for (let k=0;k<(near ? 30 : 14);k++){
       const x = near ? WW/2 + rand(-260,260) : rand(120,WW-120), y = near ? WH/2 + rand(-200,200) : rand(120,WH-120);
-      if (inObstacle(x,y,d.r+20)) continue;
-      if (G.tanks.some(t => !t.dead && Math.hypot(t.x-x,t.y-y) < 220)) continue;
-      G.objects.push({id:nextB++, type, x, y, vx:0, vy:0, dir:rand(0,TAU), rot:rand(0,6), vr: type === 'triangle' ? rand(1.2,1.8)*(Math.random() < 0.5 ? -1 : 1) : rand(-0.6,0.6), hp:d.hp, maxHp:d.hp, mass:d.mass, r:d.r, flash:0, dead:false});
-      return;
+      if (inObstacle(x,y,d.r+30)) continue;
+      let md = 1e9; for (const t of G.tanks) if (!t.dead) md = Math.min(md, Math.hypot(t.x-x,t.y-y) - 160);
+      if (md < 60) continue;
+      for (const o of G.objects) md = Math.min(md, Math.hypot(o.x-x,o.y-y));
+      if (near){ best = [x,y]; break; }
+      if (md > bs){ bs = md; best = [x,y]; }
     }
+    if (!best) return;
+    G.objects.push({id:nextB++, type, x:best[0], y:best[1], vx:0, vy:0, dir:rand(0,TAU), rot:rand(0,6), vr: type === 'triangle' ? rand(1.2,1.8)*(Math.random() < 0.5 ? -1 : 1) : rand(-0.6,0.6), hp:d.hp, maxHp:d.hp, mass:d.mass, r:d.r, flash:0, dead:false});
   }
 
   function stamp(x, y, r, owner, credit){
@@ -269,12 +277,7 @@ export function createSim(opts){
     if (G.over) return;
     t.xp += a; t.xpTotal += a; t.ptsXp += a;
     while (t.ptsXp >= XP_PER_POINT){ t.ptsXp -= XP_PER_POINT; t.points++; }
-    while (t.level < 30 && t.xp >= xpNeed(t.level)){
-      t.xp -= xpNeed(t.level); t.level++;
-      if (t.human) onEvent({k:'lvl', id:t.id, lv:t.level});
-    }
-    if (t.level >= 30) t.xp = Math.min(t.xp, xpNeed(30));
-    t.xpn = xpNeed(t.level);
+    // the level is the number of upgrades bought; progress to the next level is the points towards the next upgrade
   }
   // Rookie -> class. Upgrades the new class also has carry over; the rest are refunded as points.
   function transform(t, k){
@@ -296,6 +299,8 @@ export function createSim(opts){
     t.stats[i]++; t.points -= cost;
     if (key === 'hp') t.hp += t.cls === 'roller' ? 15 : 12;
     if (key === 'ink') t.ink += 12;
+    t.level = t.stats.reduce((a,b) => a+b, 0);
+    if (t.human) onEvent({k:'lvl', id:t.id, lv:t.level});
     refresh(t);
     if (t.cls === 'rookie' && !t.classPending && t.stats.reduce((a,b) => a+b, 0) >= CLASS_AT){
       t.classPending = true;
@@ -317,7 +322,7 @@ export function createSim(opts){
     stamp(t.x, t.y, 140, po, killer);
     onEvent({k:'ring', x:t.x, y:t.y, r:150, o:po});
     if (killer){
-      killer.splats++; addXP(killer, 60 + 10*t.level);
+      killer.splats++; addXP(killer, 60 + 6*t.level);
       for (const id in t.damagers){ const e = getTank(+id); if (e && e !== killer && G.clock - t.damagers[id] < 4) addXP(e, 20); }
       t.killedBy = killer.name;
     } else t.killedBy = '';
@@ -555,6 +560,7 @@ export function createSim(opts){
   }
 
   function resolveCircleRect(e, r, rest){
+    let hx = 0, hy = 0;
     for (const o of G.obstacles){
       const cx = clamp(e.x, o.x, o.x+o.w), cy = clamp(e.y, o.y, o.y+o.h);
       const dx = e.x - cx, dy = e.y - cy, d2 = dx*dx + dy*dy;
@@ -566,11 +572,13 @@ export function createSim(opts){
       } else { const d = Math.sqrt(d2); nx = dx/d; ny = dy/d; e.x = cx + nx*r; e.y = cy + ny*r; }
       const vn = e.vx*nx + e.vy*ny;
       if (vn < 0){ e.vx -= (1 + rest)*vn*nx; e.vy -= (1 + rest)*vn*ny; e.vx *= 0.97; e.vy *= 0.97; }
+      hx += nx; hy += ny;
     }
-    if (e.x < r){ e.x = r; if (e.vx < 0) e.vx = -e.vx*rest; }
-    if (e.y < r){ e.y = r; if (e.vy < 0) e.vy = -e.vy*rest; }
-    if (e.x > WW - r){ e.x = WW - r; if (e.vx > 0) e.vx = -e.vx*rest; }
-    if (e.y > WH - r){ e.y = WH - r; if (e.vy > 0) e.vy = -e.vy*rest; }
+    if (e.x < r){ e.x = r; if (e.vx < 0) e.vx = -e.vx*rest; hx += 1; }
+    if (e.y < r){ e.y = r; if (e.vy < 0) e.vy = -e.vy*rest; hy += 1; }
+    if (e.x > WW - r){ e.x = WW - r; if (e.vx > 0) e.vx = -e.vx*rest; hx -= 1; }
+    if (e.y > WH - r){ e.y = WH - r; if (e.vy > 0) e.vy = -e.vy*rest; hy -= 1; }
+    return hx || hy ? [hx, hy] : null;
   }
 
   function collide(){
@@ -618,7 +626,15 @@ export function createSim(opts){
       if (vn < 0){ const J = -1.6*vn/(ia+ib); a.vx -= J*ia*nx; a.vy -= J*ia*ny; b.vx += J*ib*nx; b.vy += J*ib*ny; }
     }
     for (const t of T) if (!t.dead) resolveCircleRect(t, t.r, 0.2);
-    for (const o of O) if (!o.dead) resolveCircleRect(o, o.r, 0.6);
+    for (const o of O){
+      if (o.dead) continue;
+      const n = resolveCircleRect(o, o.r, 0.85);
+      if (n){   // bounce: mirror the drift direction off the wall and give a small push away
+        const l = Math.hypot(n[0], n[1]) || 1, nx = n[0]/l, ny = n[1]/l, dx = Math.cos(o.dir), dy = Math.sin(o.dir), dot = dx*nx + dy*ny;
+        if (dot < 0.2) o.dir = Math.atan2(dy - 2*Math.min(0, dot)*ny + ny*0.6, dx - 2*Math.min(0, dot)*nx + nx*0.6);
+        o.vx += nx*12; o.vy += ny*12;
+      }
+    }
   }
 
   function step(dt, untimed){
@@ -635,7 +651,10 @@ export function createSim(opts){
     updateObjects(dt);
     collide();
     G.objects = G.objects.filter(o => !o.dead);
-    if (G.objects.filter(o => o.type !== 'gold').length < 40) spawnObject(randomObjectType());
+    // refill gradually: one new object every 0.5 s while below the target, faster when the map is emptier
+    G.spawnT = (G.spawnT || 0) - dt;
+    const have = G.objects.filter(o => o.type !== 'gold').length;
+    if (have < OBJ_TARGET && G.spawnT <= 0){ spawnObject(randomObjectType()); G.spawnT = have < OBJ_TARGET*0.6 ? 0.2 : 0.5; }
     G.goldT -= dt;
     if (G.goldT <= 0){ G.goldT = 60; if (!G.objects.some(o => o.type === 'gold')){ spawnObject('gold', true); onEvent({k:'gold'}); } }
   }

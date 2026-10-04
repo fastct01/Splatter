@@ -104,7 +104,7 @@ class Room {
       for (const o of G.objects) if (Math.abs(o.x - me.x) < ax && Math.abs(o.y - me.y) < ay) O.push([o.id, Math.round(o.x), Math.round(o.y), Math.round(o.rot*100), OBJ_TYPES.indexOf(o.type), Math.ceil(o.hp), o.maxHp, o.flash > 0 ? 1 : 0]);
       const E = shared.concat(this.events.filter(e => (e.id === c.tankId) || (e.k === 'hit' && e.by === c.tankId)));
       const Y = {id:me.id, vx:Math.round(me.vx), vy:Math.round(me.vy), ink:Math.round(me.ink), icap:Math.round(me.icap), xp:Math.round(me.xp), xpn:me.xpn,
-        pts:me.points, st:me.stats, scd:Math.round(me.specialCd*10)/10, sT:Math.round(me.specialT*10)/10, sf:me.surface, cp:me.classPending?1:0, rt:Math.round(me.respawnT*10)/10,
+        pts:me.points, pp:Math.round(me.ptsXp), st:me.stats, scd:Math.round(me.specialCd*10)/10, sT:Math.round(me.specialT*10)/10, sf:me.surface, cp:me.classPending?1:0, rt:Math.round(me.respawnT*10)/10,
         cells:me.cellsPainted, spl:me.splats, xpt:Math.round(me.xpTotal), kb:me.killedBy};
       send(c, Object.assign({}, common, {B, O, E, Y}));
     }

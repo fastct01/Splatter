@@ -120,7 +120,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 
 <div id="results" class="screen dim" hidden>
   <div class="card results">
-    <div class="res-map"><canvas id="resMap" width="300" height="180" aria-label="Final paint map"></canvas></div>
+    <div class="res-map"><canvas id="resMap" width="360" height="216" aria-label="Final paint map"></canvas></div>
     <div class="res-info">
       <span id="winPill" class="pill"></span>
       <div id="bigLine" class="big"></div>
@@ -417,7 +417,7 @@ function buildView(now){
       if (!s.meDisp || Math.hypot(px - s.meDisp.x, py - s.meDisp.y) > 220 || (mineL[9]&1)) s.meDisp = {x:px, y:py};
       else { const k = Math.min(1, frameDt*18); s.meDisp.x += (px - s.meDisp.x)*k; s.meDisp.y += (py - s.meDisp.y)*k; }
       Object.assign(me, {x:s.meDisp.x, y:s.meDisp.y, dead:!!(mineL[9]&1), protect:(mineL[9]&2)?1:0, flash:(mineL[9]&4)?1:0, hp:mineL[7], mhp:mineL[8], level:mineL[10],
-        cls:CLASS_LIST[mineL[4]] || 'splat', ink:Y.ink, icap:Y.icap, xp:Y.xp, xpn:Y.xpn, points:Y.pts, stats:Y.st, specialCd:Y.scd, specialT:Y.sT, surface:Y.sf,
+        cls:CLASS_LIST[mineL[4]] || 'splat', ink:Y.ink, icap:Y.icap, xp:Y.xp, xpn:Y.xpn, points:Y.pts, ptsXp:Y.pp || 0, stats:Y.st, specialCd:Y.scd, specialT:Y.sT, surface:Y.sf,
         classPending:!!Y.cp, respawnT:Y.rt, cellsPainted:Y.cells, splats:Y.spl, xpTotal:Y.xpt, killedBy:Y.kb, vx:Y.vx, vy:Y.vy});
       me.r = CLASSES[me.cls].r;
       if (!me.dead) me.aim = input.aim;
@@ -799,6 +799,13 @@ function tinSVG(paint, dmg, gold){
   if (dmg >= 2) g += `<ellipse cx="${f1(x+R*0.95)}" cy="${f1(y+Hs+ry*0.9)}" rx="${f1(R*0.45)}" ry="${f1(ry*0.5)}" fill="${paint}" stroke="${INK}" stroke-width="1.5"/>`;
   return {svg:g, vb:[-48, -48, 96, 96]};
 }
+// cracks drawn in the shape's own (unrotated) frame; stage 4 also knocks a chip off a corner
+function crackSet(rot, dmg, cracks, chip, chipFill){
+  let g = '';
+  for (let i=0;i<Math.min(dmg, cracks.length);i++) for (const d of cracks[i]) g += `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${i === dmg - 1 ? 2.8 : 2.4}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  if (dmg >= 4) g += `<path d="${chip}" fill="${chipFill}" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/>`;
+  return g ? `<g transform="rotate(${rot})">${g}</g>` : '';
+}
 function triPts(r, rot){ const p = []; for (let k=0;k<3;k++){ const a = (-90 + k*120 + rot)*Math.PI/180; p.push([Math.cos(a)*r, Math.sin(a)*r]); } return p; }
 const polyD = pts => 'M' + pts.map(([a,b]) => f1(a) + ' ' + f1(b)).join(' L') + ' Z';
 function prismSVG(rot, dmg){
@@ -813,8 +820,7 @@ function prismSVG(rot, dmg){
   ['#FF2D87','#FF8A1F','#FFD21F','#2DBE5A','#2D8CFF'].forEach((cl, i) => { const off = (i-2)*0.11; g += `<line x1="${f1(mx)}" y1="${f1(my)}" x2="${f1(mx + 42*Math.cos(Math.atan2(ny,nx)+off))}" y2="${f1(my + 42*Math.sin(Math.atan2(ny,nx)+off))}" stroke="${cl}" stroke-width="3.6" stroke-linecap="round"/>`; });
   const sx = pts[0][0]*0.62 - 3, sy = pts[0][1]*0.62;
   g += `<path d="M${f1(sx)} ${f1(sy)} l3 -7 l3 7 l7 3 l-7 3 l-3 7 l-3 -7 l-7 -3 Z" fill="#FFFFFF" stroke="${INK}" stroke-width="1.2" stroke-linejoin="round"/>`;
-  if (dmg >= 1) g += `<path d="M${f1(pts[2][0]*0.7)} ${f1(pts[2][1]*0.7)} L${f1(-r*0.15)} ${f1(r*0.1)} L${f1(-r*0.05)} ${f1(r*0.35)}" fill="none" stroke="${INK}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-  if (dmg >= 2) g += `<path d="M${f1(pts[1][0]*0.7)} ${f1(pts[1][1]*0.7)} L${f1(r*0.25)} ${f1(r*0.15)} L${f1(r*0.1)} ${f1(-r*0.2)}" fill="none" stroke="${INK}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  g += crackSet(rot, dmg, [['M-19 -11 L-6 -2 L-9 10'], ['M10 22 L6 10 L14 2'], ['M3 -34 L8 -20 L2 -12', 'M8 -20 L15 -16'], ['M28 4 L16 8 L20 16', 'M-30 17 L-20 12']], 'M0 -44 L7 -32 L-6 -33 Z', '#B9A6FF');
   return {svg:g, vb:[-70, -70, 140, 140]};
 }
 function drumSVG(rot, paint, dmg){
@@ -823,8 +829,7 @@ function drumSVG(rot, paint, dmg){
   g += `<path d="${polyD(pts.map(([a,b]) => [a, b+7]))}" fill="#C9D1DA" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
   g += `<path d="${polyD(pts)}" fill="#FFFFFF" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
   g += `<circle cx="0" cy="0" r="${f1(r*0.55)}" fill="none" stroke="#8A97A6" stroke-width="4"/><circle cx="0" cy="0" r="${f1(r*0.3)}" fill="${paint}" stroke="${INK}" stroke-width="2"/><circle cx="-5" cy="-5" r="3" fill="#FFFFFF" opacity="0.8"/>`;
-  if (dmg >= 1) g += `<path d="M${f1(pts[3][0]*0.85)} ${f1(pts[3][1]*0.85)} L${f1(pts[3][0]*0.6+4)} ${f1(pts[3][1]*0.6)} L${f1(pts[3][0]*0.5)} ${f1(pts[3][1]*0.45+5)}" fill="none" stroke="${INK}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-  if (dmg >= 2) g += `<path d="M${f1(pts[1][0]*0.85)} ${f1(pts[1][1]*0.85)} L${f1(pts[1][0]*0.6-4)} ${f1(pts[1][1]*0.6)} L${f1(pts[1][0]*0.55)} ${f1(pts[1][1]*0.4-4)}" fill="none" stroke="${INK}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  g += crackSet(rot, dmg, [['M-30 -12 L-18 -6 L-20 6'], ['M24 -20 L14 -12 L18 -2'], ['M8 32 L4 20 L12 14', 'M4 20 L-4 17'], ['M-22 28 L-12 18 L-14 10', 'M31 10 L22 12']], 'M0 -42 L8 -30 L-7 -31 Z', '#C9D1DA');
   return {svg:g, vb:[-60, -60, 120, 120]};
 }
 // sprite size in world units per mockup unit, so each object matches its hit size
@@ -843,8 +848,9 @@ function objSprite(type, look, rot, dmg){
   return e;
 }
 const TIN_COLS = ['#FF2D87','#2D8CFF','#2DBE5A','#FF8A1F','#9B5CFF','#1FD6D0','#FF3B3B'];
+function crackStage(o){ const f = o.hp/o.maxHp; return o.type === 'triangle' || o.type === 'barrel' ? (f > 0.8 ? 0 : f > 0.6 ? 1 : f > 0.4 ? 2 : f > 0.2 ? 3 : 4) : (f > 0.6 ? 0 : f > 0.3 ? 1 : 2); }
 function drawObject(c, o){
-  const f = o.hp/o.maxHp, dmg = f > 0.6 ? 0 : f > 0.3 ? 1 : 2;
+  const f = o.hp/o.maxHp, dmg = crackStage(o), tr = objTrack.get(o.id);
   const id = o.id || 0, paint = TIN_COLS[id % TIN_COLS.length];
   let rot = 0, look = '';
   if (o.type === 'triangle'){ rot = ((Math.round(o.rot*180/Math.PI/15)*15) % 360 + 360) % 360; }
@@ -852,8 +858,12 @@ function drawObject(c, o){
   else look = o.type === 'gold' ? 'gold' : paint;
   const e = objSprite(o.type, look, rot, dmg), k = OBJ_SCALE[o.type] || 0.6, [vx, vy, vw, vh] = e.vb;
   if (e.ready){
-    c.drawImage(e.img, o.x + vx*k, o.y + vy*k, vw*k, vh*k);
-    if (o.flash > 0){ c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.45; c.drawImage(e.img, o.x + vx*k, o.y + vy*k, vw*k, vh*k); c.restore(); }
+    const since = tr && tr.hitAt !== undefined ? clk - tr.hitAt : 9, big = tr && tr.bigAt !== undefined && clk - tr.bigAt < 0.35;
+    c.save(); c.translate(o.x, o.y);
+    if (since < 0.3){ const q = since/0.3, a = (big ? 0.16 : 0.09)*Math.sin(q*Math.PI*3)*(1 - q); c.scale(1 + a, 1 - a); c.rotate((big ? 0.08 : 0.04)*Math.sin(q*Math.PI*4)*(1 - q)); }
+    c.drawImage(e.img, vx*k, vy*k, vw*k, vh*k);
+    if (o.flash > 0 || big){ c.globalCompositeOperation = 'lighter'; c.globalAlpha = big ? 0.6*(1 - (clk - tr.bigAt)/0.35) : 0.45; c.drawImage(e.img, vx*k, vy*k, vw*k, vh*k); }
+    c.restore();
   }
   if (o.type === 'gold'){   // twinkles
     c.save(); c.fillStyle = WHITE; c.strokeStyle = INK; c.lineWidth = 1.2;
@@ -910,10 +920,36 @@ function drawPops(c){
 }
 // objects that disappear burst into pieces
 const objTrack = new Map(), OBJ_POPS = [];
+const CHIPS = [];
+const CHIP_COL = {triangle:['#E9E3FF','#B9A6FF','#FFFFFF'], barrel:['#FFFFFF','#C9D1DA'], gold:['#FFD21F','#FFE680']};
+function chips(o, n, col){
+  const cols = CHIP_COL[o.type] || [col, '#AEB7C2'];
+  for (let i=0;i<n && CHIPS.length < 160;i++){ const a = rand(0, Math.PI*2), sp = rand(60, 150);
+    CHIPS.push({x:o.x + Math.cos(a)*o.r*0.6, y:o.y + Math.sin(a)*o.r*0.4, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp*0.6, z:14, vz:rand(120, 220), rot:rand(0, 6), vr:rand(-12, 12), t:0, T:rand(0.45, 0.8), s:rand(3, 5.5), col:cols[i % cols.length], tri:o.type === 'triangle', drop:o.type === 'can'}); }
+}
 function trackObjects(list){
   const now = clk;
-  for (const o of list){ objTrack.set(o.id, {x:o.x, y:o.y, type:o.type, low: o.hp/o.maxHp < 0.45, seen:now, col:TIN_COLS[(o.id || 0) % TIN_COLS.length]}); }
+  for (const o of list){
+    const stage = crackStage(o), col = TIN_COLS[(o.id || 0) % TIN_COLS.length];
+    let t = objTrack.get(o.id);
+    if (!t){ t = {hp:o.hp, stage}; objTrack.set(o.id, t); }
+    if (o.hp < t.hp - 0.01){ t.hitAt = now; chips(o, 2, col); }
+    if (stage > t.stage){ t.bigAt = now; chips(o, 6, col); FX.rings.push({x:o.x, y:o.y, r:o.r*1.5, color:'#FFFFFF', t:0, T:0.25}); }
+    Object.assign(t, {x:o.x, y:o.y, type:o.type, low: o.hp/o.maxHp < 0.45, seen:now, col, hp:o.hp, stage, r:o.r});
+  }
   for (const [id, t] of objTrack){ if (t.seen !== now){ objTrack.delete(id); if (t.low && OBJ_POPS.length < 30) OBJ_POPS.push({...t, t:0, T:0.6}); } }
+}
+function drawChips(c){
+  for (const p of CHIPS){
+    const u = p.t/p.T; c.globalAlpha = 1 - u*u; c.save(); c.translate(p.x, p.y - p.z); c.rotate(p.rot);
+    c.beginPath(); if (p.drop) c.arc(0, 0, p.s*0.7, 0, Math.PI*2); else if (p.tri){ c.moveTo(0, -p.s); c.lineTo(p.s*0.9, p.s*0.7); c.lineTo(-p.s*0.9, p.s*0.7); c.closePath(); } else rr(c, -p.s, -p.s*0.6, p.s*2, p.s*1.2, 1.5);
+    c.fillStyle = p.col; c.fill(); c.lineWidth = 1.5; c.strokeStyle = INK; c.stroke(); c.restore();
+  }
+  c.globalAlpha = 1;
+}
+function stepChips(dt){
+  for (const p of CHIPS){ p.t += dt; p.x += p.vx*dt; p.y += p.vy*dt; p.vz -= 700*dt; p.z = Math.max(0, p.z + p.vz*dt); if (p.z === 0){ p.vx *= 0.8; p.vy *= 0.8; p.vz = Math.abs(p.vz) > 60 ? -p.vz*0.35 : 0; } p.rot += p.vr*dt; }
+  for (let i = CHIPS.length - 1; i >= 0; i--) if (CHIPS[i].t >= CHIPS[i].T) CHIPS.splice(i, 1);
 }
 function drawObjPops(c){
   for (const p of OBJ_POPS){
@@ -986,7 +1022,7 @@ function render(){
     ctx.fillText(t.name, t.x, top - 4);
   }
   for (const f of FX.rings){ const u = f.t/f.T; ctx.globalAlpha = 1 - u; ctx.lineWidth = 4; ctx.strokeStyle = f.color; ctx.beginPath(); ctx.arc(f.x, f.y, f.r*(0.5 + 0.6*u), 0, Math.PI*2); ctx.stroke(); ctx.globalAlpha = 1; }
-  drawPops(ctx); drawObjPops(ctx);
+  drawPops(ctx); drawChips(ctx); drawObjPops(ctx);
   for (const f of FX.hits){ const u = f.t/f.T; ctx.globalAlpha = 1 - u; ctx.strokeStyle = INK; ctx.lineWidth = 3; const k = 7 + 5*u, hy = f.y - 20; ctx.beginPath(); ctx.moveTo(f.x-k, hy-k); ctx.lineTo(f.x+k, hy+k); ctx.moveTo(f.x+k, hy-k); ctx.lineTo(f.x-k, hy+k); ctx.stroke(); ctx.globalAlpha = 1; }
   ctx.restore();
   if (session.kind !== 'demo' && V.me) drawHUD();
@@ -1047,6 +1083,41 @@ function drawHealthBar(x, y, w, h, f, u, dead){
     ctx.globalAlpha = Math.max(0, 1 - d.t/d.T); ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI*2); ctx.fillStyle = d.c; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = INK; ctx.stroke();
   }
   ctx.globalAlpha = 1; hpFx.drops = hpFx.drops.filter(d => d.t < d.T);
+}
+/* ---------- ink tank bar: same capsule as health, in your colour, with flowing ink and falling drips ---------- */
+const inkFx = {show:1, drips:[]};
+function drawDropIcon(cx, cy, s, col){
+  ctx.beginPath(); ctx.moveTo(cx, cy - 0.75*s); ctx.bezierCurveTo(cx + 0.2*s, cy - 0.4*s, cx + 0.6*s, cy - 0.05*s, cx + 0.6*s, cy + 0.22*s);
+  ctx.arc(cx, cy + 0.22*s, 0.6*s, 0, Math.PI); ctx.bezierCurveTo(cx - 0.6*s, cy - 0.05*s, cx - 0.2*s, cy - 0.4*s, cx, cy - 0.75*s);
+  ctx.closePath(); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = Math.max(1.5, 0.16*s); ctx.strokeStyle = INK; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx - 0.22*s, cy + 0.12*s, 0.13*s, 0, Math.PI*2); ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fill();
+}
+function drawInkBar(x, y, w, h, f, col, u){
+  const dt = frameDt, r = h/2;
+  if (f < inkFx.show - 0.01){ if (inkFx.drips.length < 12) inkFx.drips.push({x: x + w*inkFx.show - rand(2, 10)*u, y: y + h - 2*u, vy: rand(10, 40), t:0, T: rand(0.5, 0.8), r: rand(1.8, 2.8)*u}); inkFx.show = f; }
+  else inkFx.show += (f - inkFx.show)*Math.min(1, dt*6);
+  const fw = w*clamp(inkFx.show, 0, 1), low = f < 0.2;
+  ctx.save();
+  ctx.fillStyle = FLOOR; rr(ctx, x, y, w, h, r); ctx.fill();
+  ctx.save(); rr(ctx, x, y, w, h, r); ctx.clip();
+  if (fw > 0.5){
+    const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, tint(col, 0.3)); g.addColorStop(0.6, col); g.addColorStop(1, darken(col, 0.78));
+    const amp = Math.min(1.6*u, fw*0.2);
+    ctx.beginPath(); ctx.moveTo(x - 1, y - 1);
+    for (let k=0;k<=6;k++) ctx.lineTo(x + fw + Math.sin(clk*3.5 + k*0.9)*amp, y - 1 + (h + 2)*k/6);
+    ctx.lineTo(x - 1, y + h + 1); ctx.closePath(); ctx.fillStyle = g; ctx.fill();
+    ctx.save(); ctx.clip();   // flowing diagonal stripes, like ink pouring through a tube
+    ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = h*0.32; const off = (clk*16*u) % (h*1.6);
+    ctx.beginPath(); for (let sx = x - h*2 + off; sx < x + fw + h; sx += h*1.6){ ctx.moveTo(sx, y + h + 2); ctx.lineTo(sx + h, y - 2); } ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,.5)'; rr(ctx, x + r*0.7, y + h*0.17, Math.max(0, Math.min(fw, w) - r*1.4), h*0.2, h*0.1); ctx.fill();
+  }
+  ctx.restore();
+  ctx.lineWidth = Math.max(2, 2.5*u); ctx.strokeStyle = low && Math.sin(clk*8) > 0 ? ALERT : INK; rr(ctx, x, y, w, h, r); ctx.stroke();
+  ctx.restore();
+  for (const d of inkFx.drips){ d.t += dt; d.vy += 300*dt; d.y += d.vy*dt; ctx.globalAlpha = Math.max(0, 1 - d.t/d.T);
+    ctx.beginPath(); ctx.ellipse(d.x, d.y, d.r*0.8, d.r*1.15, 0, 0, Math.PI*2); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = INK; ctx.stroke(); }
+  ctx.globalAlpha = 1; inkFx.drips = inkFx.drips.filter(d => d.t < d.T);
 }
 function specialBtn(){ const u = clamp(Math.min(VW,VH)/720, 0.62, 1); return {x: VW - 16 - SAFE.r - 50, y: VH - 16 - SAFE.b - 45*u, r: 40}; }
 
@@ -1141,15 +1212,17 @@ function drawHUD(){
   text('Health', ix + 34*u, iy + 22*u, fs);
   text(Math.ceil(p.hp || 0) + ' / ' + Math.round(p.mhp || 100), ix + iw - 14*u, iy + 22*u, fs, INK, 'right');
   drawHealthBar(ix + 14*u, iy + 29*u, iw - 28*u, 17*u, hf, u, p.dead);
-  text('Ink tank', ix + 14*u, iy + hy + 22*u, fs);
-  text(Math.round(p.ink/cap*100) + '%', ix + iw - 14*u, iy + hy + 22*u, fs, INK, 'right');
-  ctx.fillStyle = FLOOR; rr(ctx, ix + 14*u, iy + hy + 32*u, iw - 28*u, 12*u, 6*u); ctx.fill();
-  ctx.fillStyle = ownerColor(V.mode, V.mode === 'teams' ? p.team : p.slot); rr(ctx, ix + 14*u, iy + hy + 32*u, (iw - 28*u)*clamp(p.ink/cap,0,1), 12*u, 6*u); ctx.fill();
+  const inkCol = ownerColor(V.mode, V.mode === 'teams' ? p.team : p.slot), inkF = clamp(p.ink/cap, 0, 1);
+  drawDropIcon(ix + 21*u, iy + hy + 15*u, 11*u*(1 + (inkF < 0.2 ? 0.12*Math.max(0, Math.sin(clk*8)) : 0)), inkCol);
+  text('Ink tank', ix + 34*u, iy + hy + 22*u, fs);
+  text(Math.round(inkF*100) + '%', ix + iw - 14*u, iy + hy + 22*u, fs, inkF < 0.2 ? ALERT : INK, 'right');
+  drawInkBar(ix + 14*u, iy + hy + 29*u, iw - 28*u, 17*u, inkF, inkCol, u);
   const hint = p.surface === 1 ? 'On your colour: +40% speed · regen on' : p.surface === -1 ? 'On enemy paint: slowed' : 'Neutral floor';
-  text(merged && p.surface === 1 ? 'Your colour: fast + regen' : hint, ix + 14*u, iy + hy + 64*u, '400 ' + Math.round(13*u) + 'px ' + FB, p.surface === -1 ? ALERT : MUTED);
-  const nUp = p.stats ? p.stats.reduce((a,b) => a+b, 0) : 0;
-  const lvlLine = 'Level ' + p.level + ' · ' + C.label + (p.cls !== 'rookie' ? '' : p.classPending ? (merged ? ' · pick class' : ' · pick your class') : merged ? ' · class ' + nUp + '/' + S.CLASS_AT : ' · class unlocks at ' + S.CLASS_AT + ' upgrades (' + nUp + '/' + S.CLASS_AT + ')');
-  const xpFrac = p.level >= 30 ? 1 : clamp(p.xp/(p.xpn || 1), 0, 1);
+  text(merged && p.surface === 1 ? 'Your colour: fast + regen' : hint, ix + 14*u, iy + hy + 66*u, '400 ' + Math.round(13*u) + 'px ' + FB, p.surface === -1 ? ALERT : MUTED);
+  const cost = S.upgradeCost(p), pts = Math.min(p.points || 0, cost), ready = (p.points || 0) >= cost;
+  const xpFrac = ready ? 1 : clamp((pts + (p.ptsXp || 0)/S.XP_PER_POINT)/cost, 0, 1);
+  const tail = p.cls === 'rookie' ? (p.classPending ? (merged ? ' · pick class' : ' · pick your class') : merged ? '' : ' · class at level ' + S.CLASS_AT) : '';
+  const lvlLine = 'Level ' + (p.level || 0) + ' · ' + C.label + ' · ' + (ready ? 'upgrade ready' : pts + '/' + cost + (merged ? '' : ' points to level ' + ((p.level || 0) + 1))) + tail;
   if (merged){
     text(lvlLine, ix + 14*u, iy + hy + 84*u, '500 ' + Math.round(13*u) + 'px ' + FD);
     ctx.fillStyle = FLOOR; rr(ctx, ix + 14*u, iy + hy + 90*u, iw - 28*u, 6*u, 3*u); ctx.fill();
@@ -1158,7 +1231,8 @@ function drawHUD(){
     const bw = Math.max(120, Math.min(420*u, VW - 2*(Math.max(iw, 150*u) + 56))), bx = cx - bw/2, by = B0 - 12*u;
     text(lvlLine, cx, by - 10*u, '500 ' + Math.round(16*u) + 'px ' + FD, INK, 'center');
     ctx.fillStyle = WHITE; rr(ctx, bx, by, bw, 12*u, 6*u); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
-    ctx.fillStyle = INK; rr(ctx, bx, by, bw*xpFrac, 12*u, 6*u); ctx.fill();
+    ctx.fillStyle = ready ? '#FF2D87' : INK; rr(ctx, bx, by, bw*xpFrac, 12*u, 6*u); ctx.fill();
+    for (let k=1;k<cost;k++){ const nx = bx + bw*k/cost; ctx.fillStyle = k/cost < xpFrac ? 'rgba(255,255,255,.6)' : 'rgba(35,42,53,.25)'; ctx.fillRect(nx - 1, by + 2*u, 2, 8*u); }   // one notch per point
   }
   statsBox.style.bottom = ptsBox.style.bottom = (VH - iy + 10) + 'px';
   ptsBox.style.width = Math.round(iw) + 'px';
@@ -1269,7 +1343,7 @@ function showResults(){
   $('tArea').textContent = Math.round(m2).toLocaleString() + ' m²';
   $('tSplats').textContent = p.splats || 0;
   $('tXp').textContent = '+' + Math.round(p.xpTotal || 0).toLocaleString();
-  const rc = $('resMap'), rg = rc.getContext('2d'), img = rg.createImageData(300,180), d = img.data;
+  const rc = $('resMap'), rg = rc.getContext('2d'), img = rg.createImageData(GW,GH), d = img.data;
   const col = []; for (let o=0;o<16;o++) col[o] = o === 0 ? [255,255,255] : rgbOf(ownerColor(V.mode, o));
   for (let k=0;k<GW*GH;k++){ const v = V.grid[k], c = v === 255 ? [138,151,166] : (col[v] || col[0]); d[k*4] = c[0]; d[k*4+1] = c[1]; d[k*4+2] = c[2]; d[k*4+3] = 255; }
   rg.putImageData(img, 0, 0);
@@ -1385,6 +1459,7 @@ function frame(now){
   if (f){ const k = Math.min(1, el*(s.kind === 'demo' ? 1.5 : 10)); cam.x += (f.x - cam.x)*k; cam.y += (f.y - cam.y)*k; }
   for (const r of FX.rings) r.t += el; FX.rings = FX.rings.filter(r => r.t < r.T);
   for (const h of FX.hits) h.t += el; FX.hits = FX.hits.filter(h => h.t < h.T);
+  stepChips(el);
   for (const L of [POPS, OBJ_POPS]){ for (const p of L) p.t += el; for (let i = L.length - 1; i >= 0; i--) if (L[i].t >= L[i].T) L.splice(i, 1); }
   for (const q of FX.feed) q.t -= el; FX.feed = FX.feed.filter(q => q.t > 0);
   if (FX.toast){ FX.toast.t -= el; if (FX.toast.t <= 0) FX.toast = null; }
