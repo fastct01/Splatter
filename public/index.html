@@ -1003,6 +1003,20 @@ function render(){
     ctx.rotate(clk*5); ctx.beginPath(); ctx.arc(0, 0, 7, 0.2, Math.PI*1.5); ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.strokeStyle = bc; ctx.stroke(); ctx.lineCap = 'butt'; ctx.restore();
   }
   const vis = t => !t.dead && t.x > x0-140 && t.x < x1+140 && t.y > y0-60 && t.y < y1+170;
+  // Bomber: show how far you can throw (dashed ring on the floor) and where the bomb will land, with its splash size
+  if (session.kind !== 'demo' && V.me && !V.me.dead && V.me.cls === 'bomber' && $('results').hidden){
+    const p = V.me, maxR = CLASSES.bomber.range*(1 + 0.08*(p.stats ? S.up(p, 'range') : 0)), fx = p.x, fy = p.y;
+    const d = clamp(input.aimDist, 120, maxR), lx = clamp(p.x + Math.cos(input.aim)*d, 30, WW-30), ly = clamp(p.y + Math.sin(input.aim)*d, 30, WH-30);
+    const blast = 110*(1 + 0.10*(p.stats ? S.up(p, 'blast') : 0)), col = oc(V.mode === 'teams' ? p.team : p.slot);
+    ctx.save();
+    ctx.globalAlpha = 0.55; ctx.setLineDash([10, 9]); ctx.lineDashOffset = -clk*12; ctx.lineWidth = 2.5; ctx.strokeStyle = INK;
+    ctx.beginPath(); ctx.arc(fx, fy, maxR, 0, Math.PI*2); ctx.stroke();
+    ctx.globalAlpha = 0.16; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(lx, ly, blast, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 0.8; ctx.setLineDash([6, 6]); ctx.lineWidth = 2.5; ctx.strokeStyle = col; ctx.beginPath(); ctx.arc(lx, ly, blast, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 0.9; ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(lx - 9, ly); ctx.lineTo(lx + 9, ly); ctx.moveTo(lx, ly - 9); ctx.lineTo(lx, ly + 9); ctx.stroke();
+    ctx.restore();
+  }
   for (const t of V.tanks){
     if (!vis(t)) continue;
     const gy = t.y + SPR_FEET;
