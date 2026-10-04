@@ -100,7 +100,7 @@ class Room {
       const scope = me.cls === 'liner' && me.specialT > 0 ? 1.6 : 1;
       const ax = 1700*scope, ay = 1150*scope;
       const B = [], O = [];
-      for (const b of G.bullets) if (Math.abs(b.x - me.x) < ax && Math.abs(b.y - me.y) < ay) B.push([b.id, Math.round(b.x), Math.round(b.y), b.po, b.r]);
+      for (const b of G.bullets) if (Math.abs(b.x - me.x) < ax && Math.abs(b.y - me.y) < ay) B.push([b.id, Math.round(b.x), Math.round(b.y), b.po, b.r, b.line ? 1 : 0]);
       for (const o of G.objects) if (Math.abs(o.x - me.x) < ax && Math.abs(o.y - me.y) < ay) O.push([o.id, Math.round(o.x), Math.round(o.y), Math.round(o.rot*100), OBJ_TYPES.indexOf(o.type), Math.ceil(o.hp), o.maxHp, o.flash > 0 ? 1 : 0]);
       const E = shared.concat(this.events.filter(e => (e.id === c.tankId) || (e.k === 'hit' && e.by === c.tankId)));
       const Y = {id:me.id, vx:Math.round(me.vx), vy:Math.round(me.vy), ink:Math.round(me.ink), icap:Math.round(me.icap), xp:Math.round(me.xp), xpn:me.xpn,

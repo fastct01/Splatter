@@ -424,9 +424,9 @@ function buildView(now){
       v.me = me;
     }
   }
-  for (const a of s1.bullets.values()){ const b = s0.bullets.get(a[0]); v.bullets.push({x: b ? b[1] + (a[1]-b[1])*u : a[1], y: b ? b[2] + (a[2]-b[2])*u : a[2], po:a[3], r:a[4]}); }
+  for (const a of s1.bullets.values()){ const b = s0.bullets.get(a[0]); v.bullets.push({id:a[0], x: b ? b[1] + (a[1]-b[1])*u : a[1], y: b ? b[2] + (a[2]-b[2])*u : a[2], po:a[3], r:a[4], line:!!a[5]}); }
   for (const a of s1.objects.values()){ const b = s0.objects.get(a[0]) || a; const type = OBJ_TYPES[a[4]];
-    v.objects.push({type, x: b[1] + (a[1]-b[1])*u, y: b[2] + (a[2]-b[2])*u, rot: a[3]/100, r: OBJ[type].r, hp:a[5], maxHp:a[6], flash:a[7]}); }
+    v.objects.push({id:a[0], type, x: b[1] + (a[1]-b[1])*u, y: b[2] + (a[2]-b[2])*u, rot: a[3]/100, r: OBJ[type].r, hp:a[5], maxHp:a[6], flash:a[7]}); }
   const since = Math.max(0, (rt - s1.t)/1000);
   for (const a of s1.bombs) v.bombs.push({x0:a[1], y0:a[2], x1:a[3], y1:a[4], t: Math.min(a[6], a[5] + since*1000)/1000, T:a[6]/1000, po:a[7], R:a[8]});
   return v;
@@ -757,24 +757,174 @@ function drawWall(c, o){
   c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = 2; c.beginPath(); c.moveTo(o.x + 10, o.y - WALL + 5); c.lineTo(o.x + o.w - 10, o.y - WALL + 5); c.stroke();
 }
 
-function drawObject(c, o){
-  c.save(); c.translate(o.x, o.y); c.rotate(o.rot);
-  c.lineWidth = 3; c.strokeStyle = INK;
-  if (o.type === 'triangle'){
-    c.beginPath(); for (let k=0;k<3;k++){ const a = -Math.PI/2 + k*Math.PI*2/3; c.lineTo(Math.cos(a)*o.r*1.15, Math.sin(a)*o.r*1.15); } c.closePath();
-    c.lineJoin = 'round'; c.fillStyle = o.flash > 0 ? WHITE : '#FF7A59'; c.fill(); c.stroke(); c.lineJoin = 'miter';
-    c.beginPath(); c.arc(0, 0, o.r*0.22, 0, Math.PI*2); c.fillStyle = WHITE; c.fill();
-  } else if (o.type === 'barrel'){
-    c.beginPath(); for (let k=0;k<5;k++){ const a = -Math.PI/2 + k*Math.PI*2/5; c.lineTo(Math.cos(a)*o.r, Math.sin(a)*o.r); } c.closePath();
-    c.fillStyle = o.flash > 0 ? FLOOR : WHITE; c.fill(); c.stroke();
-    c.beginPath(); c.arc(0,0,o.r*0.32,0,Math.PI*2); c.fillStyle = ROCK; c.fill();
-  } else {
-    const s = o.r*1.5; rr(c, -s/2, -s/2, s, s, 6);
-    c.fillStyle = o.flash > 0 ? WHITE : (o.type === 'gold' ? '#FFD21F' : ROCK); c.fill(); c.stroke();
-    c.beginPath(); c.moveTo(-s/2+6, -s/2+s*0.28); c.lineTo(s/2-6, -s/2+s*0.28); c.lineWidth = 2; c.stroke();
+/* ---------- objects: paint tin (squares), rainbow prism (triangles), paint drum (barrels), gold tin ---------- */
+// Drawn once as SVG at mockup size and cached per look; damage shows dents/cracks, the tin loses its lid when almost broken.
+const OBJ_SPRITES = new Map();
+const f1 = v => (Math.round(v*10)/10).toString();
+const SPLAT_D = 'M0,-40 C20,-44 30,-30 42,-34 C50,-20 36,-6 46,8 C52,22 30,26 26,40 C14,50 -4,36 -18,44 C-34,46 -30,26 -44,16 C-52,0 -36,-10 -40,-26 C-36,-40 -16,-34 0,-40 Z';
+function tinSVG(paint, dmg, gold){
+  const s = 72, x = 0, R = s*0.5, ry = R*0.36, Hs = s*0.5, y = -Hs*0.35;
+  const [hi, base, dark, shine] = gold ? ['#FFE680','#FFD21F','#D9A800','#FFF4B8'] : ['#C9D1DA','#AEB7C2','#8C97A4','#E6EBF0'];
+  const label = gold ? '#FFB020' : paint;
+  const yb = xo => y + Hs + ry*Math.sqrt(Math.max(0, 1 - (xo/R)**2));
+  let g = `<ellipse cx="${f1(x+4)}" cy="${f1(y+Hs+ry*0.6)}" rx="${f1(R*1.05)}" ry="${f1(ry*1.1)}" fill="${INK}" opacity="0.16"/>`;
+  const body = `M${f1(x-R)} ${f1(y)} L${f1(x-R)} ${f1(y+Hs)} A${f1(R)} ${f1(ry)} 0 0 0 ${f1(x+R)} ${f1(y+Hs)} L${f1(x+R)} ${f1(y)} Z`;
+  g += `<path d="${body}" fill="${base}"/>`;
+  for (const [a, b, col, op] of [[0.55, 1.0, dark, 1], [-0.62, -0.38, shine, 0.9], [0.2, 0.3, hi, 0.6]]){
+    const xa = x + a*R, xb = x + b*R;
+    g += b >= 1 ? `<path d="M${f1(xa)} ${f1(y)} L${f1(xb)} ${f1(y)} L${f1(xb)} ${f1(y+Hs)} A${f1(R)} ${f1(ry)} 0 0 1 ${f1(xa)} ${f1(yb(a*R))} Z" fill="${col}" opacity="${op}"/>`
+                : `<path d="M${f1(xa)} ${f1(y)} L${f1(xb)} ${f1(y)} L${f1(xb)} ${f1(yb(b*R))} L${f1(xa)} ${f1(yb(a*R))} Z" fill="${col}" opacity="${op}"/>`;
   }
-  c.restore();
-  if (o.hp < o.maxHp){ const w = o.r*1.8; c.fillStyle = INK; rr(c, o.x - w/2 - 1, o.y + o.r + 8 - 1, w + 2, 7, 3); c.fill(); c.fillStyle = WHITE; rr(c, o.x - w/2, o.y + o.r + 8, w*Math.max(0, o.hp/o.maxHp), 5, 2.5); c.fill(); }
+  const band = (t0, t1, fill, sw) => `<path d="M${f1(x-R)} ${f1(y+t0)} A${f1(R)} ${f1(ry)} 0 0 0 ${f1(x+R)} ${f1(y+t0)} L${f1(x+R)} ${f1(y+t1)} A${f1(R)} ${f1(ry)} 0 0 1 ${f1(x-R)} ${f1(y+t1)} Z" fill="${fill}" stroke="${INK}" stroke-width="${sw}"/>`;
+  const a1 = Hs*0.3, a2 = Hs*0.84;
+  g += band(a1, a2, '#F4EFE6', 1.6) + band(a2 - (a2-a1)*0.24, a2, label, 1.2);
+  g += `<path transform="translate(${f1(x-R*0.3)} ${f1(y+a1+ry*0.95+(a2-a1)*0.22)}) scale(${f1(s/420*100)/100})" d="${SPLAT_D}" fill="${label}" stroke="${INK}" stroke-width="${f1(1.2*420/s)}"/>`;
+  g += `<path d="M${f1(x-R)} ${f1(y+Hs-2)} A${f1(R)} ${f1(ry)} 0 0 0 ${f1(x+R)} ${f1(y+Hs-2)}" fill="none" stroke="${dark}" stroke-width="2.4"/>`;
+  g += `<path d="${body}" fill="none" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
+  if (dmg >= 1) g += `<path d="M${f1(x-R*0.75)} ${f1(y+Hs*0.95)} q${f1(R*0.12)} ${f1(-Hs*0.12)} ${f1(R*0.26)} ${f1(-Hs*0.02)}" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round"/><ellipse cx="${f1(x+R*0.62)}" cy="${f1(y+Hs*0.2)}" rx="${f1(R*0.13)}" ry="${f1(Hs*0.1)}" fill="${dark}" opacity="0.8"/>`;
+  if (dmg >= 2) g += `<path d="M${f1(x+R*0.1)} ${f1(y+Hs*1.05)} l${f1(R*0.12)} ${f1(-Hs*0.2)} l${f1(R*0.12)} ${f1(Hs*0.12)}" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="${f1(x-R*0.55)}" cy="${f1(y+Hs*0.45)}" rx="${f1(R*0.12)}" ry="${f1(Hs*0.12)}" fill="${dark}" opacity="0.8"/>`;
+  g += `<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="${f1(R)}" ry="${f1(ry)}" fill="${hi}" stroke="${INK}" stroke-width="3"/>`;
+  if (dmg >= 2){
+    const lx = x - R*0.25, ly = y - ry*1.1;
+    g += `<ellipse cx="${f1(x)}" cy="${f1(y+1)}" rx="${f1(R*0.82)}" ry="${f1(ry*0.8)}" fill="${paint}" stroke="${INK}" stroke-width="1.5"/>`;
+    g += `<g transform="rotate(-14 ${f1(lx)} ${f1(ly)})"><ellipse cx="${f1(lx)}" cy="${f1(ly+3)}" rx="${f1(R*0.86)}" ry="${f1(ry*0.86)}" fill="${dark}" stroke="${INK}" stroke-width="2.5"/><ellipse cx="${f1(lx)}" cy="${f1(ly)}" rx="${f1(R*0.86)}" ry="${f1(ry*0.86)}" fill="${base}" stroke="${INK}" stroke-width="2.5"/><ellipse cx="${f1(lx)}" cy="${f1(ly)}" rx="${f1(R*0.6)}" ry="${f1(ry*0.6)}" fill="none" stroke="${dark}" stroke-width="1.6"/></g>`;
+  } else {
+    g += `<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="${f1(R*0.86)}" ry="${f1(ry*0.86)}" fill="${base}" stroke="${INK}" stroke-width="1.6"/><ellipse cx="${f1(x)}" cy="${f1(y)}" rx="${f1(R*0.66)}" ry="${f1(ry*0.66)}" fill="none" stroke="${dark}" stroke-width="2"/>`;
+    g += `<path d="M${f1(x-R*0.55)} ${f1(y-ry*0.35)} A${f1(R*0.66)} ${f1(ry*0.66)} 0 0 1 ${f1(x-R*0.05)} ${f1(y-ry*0.65)}" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" opacity="0.85"/>`;
+  }
+  const dx = x + R*0.32, d = (a, b) => f1(dx + a*R) + ' ' + f1(y + b);
+  g += `<path d="M${d(-0.3, ry*0.86)} C${d(-0.28, ry*0.5)} ${d(0.3, ry*0.5)} ${d(0.32, ry*0.8)} L${d(0.3, Hs*0.55)} C${d(0.3, Hs*0.68)} ${d(0.14, Hs*0.68)} ${d(0.14, Hs*0.55)} L${d(0.12, Hs*0.32)} C${d(0.12, Hs*0.4)} ${d(-0.04, Hs*0.4)} ${d(-0.04, Hs*0.32)} L${d(-0.06, Hs*0.62)} C${d(-0.06, Hs*0.78)} ${d(-0.3, Hs*0.78)} ${d(-0.3, Hs*0.62)} Z" fill="${gold ? '#FFFFFF' : paint}" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/>`;
+  g += `<rect x="${f1(x-R-2.5)}" y="${f1(y+ry*0.2)}" width="5" height="${f1(Hs*0.22)}" rx="2" fill="${dark}" stroke="${INK}" stroke-width="1.5"/><rect x="${f1(x+R-2.5)}" y="${f1(y+ry*0.2)}" width="5" height="${f1(Hs*0.22)}" rx="2" fill="${dark}" stroke="${INK}" stroke-width="1.5"/>`;
+  g += `<path d="M${f1(x-R)} ${f1(y+ry*0.5)} C${f1(x-R*0.9)} ${f1(y-ry*2.4)} ${f1(x+R*0.9)} ${f1(y-ry*2.4)} ${f1(x+R)} ${f1(y+ry*0.5)}" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>`;
+  if (dmg >= 2) g += `<ellipse cx="${f1(x+R*0.95)}" cy="${f1(y+Hs+ry*0.9)}" rx="${f1(R*0.45)}" ry="${f1(ry*0.5)}" fill="${paint}" stroke="${INK}" stroke-width="1.5"/>`;
+  return {svg:g, vb:[-48, -48, 96, 96]};
+}
+function triPts(r, rot){ const p = []; for (let k=0;k<3;k++){ const a = (-90 + k*120 + rot)*Math.PI/180; p.push([Math.cos(a)*r, Math.sin(a)*r]); } return p; }
+const polyD = pts => 'M' + pts.map(([a,b]) => f1(a) + ' ' + f1(b)).join(' L') + ' Z';
+function prismSVG(rot, dmg){
+  const r = 44, pts = triPts(r, rot);
+  let g = `<path d="${polyD(pts.map(([a,b]) => [a+5, b+12]))}" fill="${INK}" opacity="0.14"/>`;
+  g += `<path d="${polyD(pts.map(([a,b]) => [a, b+6]))}" fill="#B9A6FF" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
+  g += `<path d="${polyD(pts)}" fill="#E9E3FF" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
+  const inner = pts.map(([a,b]) => [a*0.45, b*0.45]), shades = ['#D6CCFF','#C7B8FF','#F4F0FF'];
+  for (let i=0;i<3;i++) g += `<path d="${polyD([pts[i], pts[(i+1)%3], inner[(i+1)%3], inner[i]])}" fill="${shades[i]}" stroke="${INK}" stroke-width="1.2" stroke-linejoin="round" opacity="0.9"/>`;
+  g += `<path d="${polyD(inner)}" fill="#FFFFFF" stroke="${INK}" stroke-width="1.5" stroke-linejoin="round"/>`;
+  const [ax, ay] = pts[1], [bx, by] = pts[0], mx = (ax+bx)/2, my = (ay+by)/2, nx = Math.cos((rot-30)*Math.PI/180), ny = Math.sin((rot-30)*Math.PI/180);
+  ['#FF2D87','#FF8A1F','#FFD21F','#2DBE5A','#2D8CFF'].forEach((cl, i) => { const off = (i-2)*0.11; g += `<line x1="${f1(mx)}" y1="${f1(my)}" x2="${f1(mx + 42*Math.cos(Math.atan2(ny,nx)+off))}" y2="${f1(my + 42*Math.sin(Math.atan2(ny,nx)+off))}" stroke="${cl}" stroke-width="3.6" stroke-linecap="round"/>`; });
+  const sx = pts[0][0]*0.62 - 3, sy = pts[0][1]*0.62;
+  g += `<path d="M${f1(sx)} ${f1(sy)} l3 -7 l3 7 l7 3 l-7 3 l-3 7 l-3 -7 l-7 -3 Z" fill="#FFFFFF" stroke="${INK}" stroke-width="1.2" stroke-linejoin="round"/>`;
+  if (dmg >= 1) g += `<path d="M${f1(pts[2][0]*0.7)} ${f1(pts[2][1]*0.7)} L${f1(-r*0.15)} ${f1(r*0.1)} L${f1(-r*0.05)} ${f1(r*0.35)}" fill="none" stroke="${INK}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  if (dmg >= 2) g += `<path d="M${f1(pts[1][0]*0.7)} ${f1(pts[1][1]*0.7)} L${f1(r*0.25)} ${f1(r*0.15)} L${f1(r*0.1)} ${f1(-r*0.2)}" fill="none" stroke="${INK}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  return {svg:g, vb:[-70, -70, 140, 140]};
+}
+function drumSVG(rot, paint, dmg){
+  const r = 42, pts = []; for (let k=0;k<5;k++){ const a = (-90 + k*72 + rot)*Math.PI/180; pts.push([Math.cos(a)*r, Math.sin(a)*r]); }
+  let g = `<path d="${polyD(pts.map(([a,b]) => [a+5, b+12]))}" fill="${INK}" opacity="0.14"/>`;
+  g += `<path d="${polyD(pts.map(([a,b]) => [a, b+7]))}" fill="#C9D1DA" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
+  g += `<path d="${polyD(pts)}" fill="#FFFFFF" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
+  g += `<circle cx="0" cy="0" r="${f1(r*0.55)}" fill="none" stroke="#8A97A6" stroke-width="4"/><circle cx="0" cy="0" r="${f1(r*0.3)}" fill="${paint}" stroke="${INK}" stroke-width="2"/><circle cx="-5" cy="-5" r="3" fill="#FFFFFF" opacity="0.8"/>`;
+  if (dmg >= 1) g += `<path d="M${f1(pts[3][0]*0.85)} ${f1(pts[3][1]*0.85)} L${f1(pts[3][0]*0.6+4)} ${f1(pts[3][1]*0.6)} L${f1(pts[3][0]*0.5)} ${f1(pts[3][1]*0.45+5)}" fill="none" stroke="${INK}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  if (dmg >= 2) g += `<path d="M${f1(pts[1][0]*0.85)} ${f1(pts[1][1]*0.85)} L${f1(pts[1][0]*0.6-4)} ${f1(pts[1][1]*0.6)} L${f1(pts[1][0]*0.55)} ${f1(pts[1][1]*0.4-4)}" fill="none" stroke="${INK}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  return {svg:g, vb:[-60, -60, 120, 120]};
+}
+// sprite size in world units per mockup unit, so each object matches its hit size
+const OBJ_SCALE = {can: 22/36*1.15, gold: 26/36*1.1, triangle: 26*1.15/44, barrel: 30/42};
+function objSprite(type, look, rot, dmg){
+  const key = type + '|' + look + '|' + rot + '|' + dmg;
+  let e = OBJ_SPRITES.get(key);
+  if (!e){
+    const d = type === 'triangle' ? prismSVG(rot, dmg) : type === 'barrel' ? drumSVG(rot, look, dmg) : tinSVG(look, dmg, type === 'gold');
+    e = {img:new Image(), ready:false, vb:d.vb};
+    const px = 2.2;
+    e.img.onload = () => { e.ready = true; };
+    e.img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(d.vb[2]*px)}" height="${Math.round(d.vb[3]*px)}" viewBox="${d.vb.join(' ')}">${d.svg}</svg>`);
+    OBJ_SPRITES.set(key, e);
+  }
+  return e;
+}
+const TIN_COLS = ['#FF2D87','#2D8CFF','#2DBE5A','#FF8A1F','#9B5CFF','#1FD6D0','#FF3B3B'];
+function drawObject(c, o){
+  const f = o.hp/o.maxHp, dmg = f > 0.6 ? 0 : f > 0.3 ? 1 : 2;
+  const id = o.id || 0, paint = TIN_COLS[id % TIN_COLS.length];
+  let rot = 0, look = '';
+  if (o.type === 'triangle'){ rot = ((Math.round(o.rot*180/Math.PI/15)*15) % 360 + 360) % 360; }
+  else if (o.type === 'barrel'){ rot = ((Math.round(o.rot*180/Math.PI/12)*12) % 72 + 72) % 72; look = paint; }
+  else look = o.type === 'gold' ? 'gold' : paint;
+  const e = objSprite(o.type, look, rot, dmg), k = OBJ_SCALE[o.type] || 0.6, [vx, vy, vw, vh] = e.vb;
+  if (e.ready){
+    c.drawImage(e.img, o.x + vx*k, o.y + vy*k, vw*k, vh*k);
+    if (o.flash > 0){ c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.45; c.drawImage(e.img, o.x + vx*k, o.y + vy*k, vw*k, vh*k); c.restore(); }
+  }
+  if (o.type === 'gold'){   // twinkles
+    c.save(); c.fillStyle = WHITE; c.strokeStyle = INK; c.lineWidth = 1.2;
+    for (let i=0;i<3;i++){ const ph = clk*2.2 + i*2.1 + id, sc = Math.max(0, Math.sin(ph))*5; if (sc < 0.5) continue; const a = i*2.1 + id; const sx = o.x + Math.cos(a)*o.r*1.25, sy = o.y - 6 + Math.sin(a)*o.r*0.9;
+      c.beginPath(); c.moveTo(sx, sy - sc*1.6); c.lineTo(sx + sc*0.45, sy - sc*0.45); c.lineTo(sx + sc*1.6, sy); c.lineTo(sx + sc*0.45, sy + sc*0.45); c.lineTo(sx, sy + sc*1.6); c.lineTo(sx - sc*0.45, sy + sc*0.45); c.lineTo(sx - sc*1.6, sy); c.lineTo(sx - sc*0.45, sy - sc*0.45); c.closePath(); c.fill(); c.stroke(); }
+    c.restore();
+  }
+  if (o.hp < o.maxHp){ const w = o.r*1.8, by = o.y + o.r + 12; c.fillStyle = INK; rr(c, o.x - w/2 - 1, by - 1, w + 2, 7, 3); c.fill(); c.fillStyle = WHITE; rr(c, o.x - w/2, by, w*Math.max(0, f), 5, 2.5); c.fill(); }
+}
+
+/* ---------- bubble shots ---------- */
+function soapBubble(c, x, y, r, col, shine){
+  c.beginPath(); c.arc(x, y, r, 0, Math.PI*2); c.globalAlpha = 0.32; c.fillStyle = col; c.fill(); c.globalAlpha = 1;
+  c.lineWidth = Math.max(2, r*0.24); c.strokeStyle = col; c.stroke();
+  c.beginPath(); c.arc(x, y, r + Math.max(1, r*0.12), 0, Math.PI*2); c.lineWidth = 1.2; c.strokeStyle = 'rgba(35,42,53,0.55)'; c.stroke();
+  if (shine !== false){
+    c.beginPath(); c.arc(x, y, r*0.64, Math.PI*1.12, Math.PI*1.42); c.lineWidth = Math.max(1.5, r*0.2); c.lineCap = 'round'; c.strokeStyle = WHITE; c.stroke(); c.lineCap = 'butt';
+    c.beginPath(); c.arc(x + r*0.38, y - r*0.42, Math.max(1, r*0.13), 0, Math.PI*2); c.fillStyle = WHITE; c.fill();
+  }
+}
+const bulletTrack = new Map();   // id -> {x, y, dx, dy, seen}
+const POPS = [];
+function drawBullets(c, list, oc, x0, y0, x1, y1){
+  const now = clk;
+  for (const b of list){
+    const id = b.id; let tr = bulletTrack.get(id);
+    if (!tr){ tr = {x:b.x, y:b.y, dx:b.vx || 0, dy:b.vy || 0, col:oc(b.po), r:b.r}; bulletTrack.set(id, tr); }
+    const mx = b.x - tr.x, my = b.y - tr.y; if (mx*mx + my*my > 0.5){ tr.dx = mx; tr.dy = my; }
+    tr.x = b.x; tr.y = b.y; tr.seen = now; tr.col = oc(b.po); tr.r = b.r;
+    if (b.x < x0-60 || b.x > x1+60 || b.y < y0-60 || b.y > y1+40) continue;
+    const l = Math.hypot(tr.dx, tr.dy) || 1, ux = tr.dx/l, uy = tr.dy/l, col = tr.col, hy = b.y - 16;
+    c.fillStyle = 'rgba(35,42,53,0.14)'; c.beginPath(); c.ellipse(b.x, b.y, b.r*0.9, b.r*0.38, 0, 0, Math.PI*2); c.fill();
+    if (b.line){   // Liner: a chain of bubbles growing towards the tip, over a faint paint line
+      c.globalAlpha = 0.35; c.strokeStyle = col; c.lineWidth = 4; c.lineCap = 'round'; c.beginPath(); c.moveTo(b.x - ux*64, hy - uy*64); c.lineTo(b.x, hy); c.stroke(); c.lineCap = 'butt'; c.globalAlpha = 1;
+      for (let i=5;i>=1;i--){ const d = i*12; soapBubble(c, b.x - ux*d, hy - uy*d, b.r*(1 - i*0.12), col, false); }
+    } else {
+      [[18, 0.42], [30, 0.3], [40, 0.2]].forEach(([d, s], i) => soapBubble(c, b.x - ux*d - uy*(i % 2 ? 3 : -3), hy - uy*d + ux*(i % 2 ? 3 : -3), Math.max(1.6, b.r*s), col, false));
+    }
+    soapBubble(c, b.x, hy, b.r*1.15, col);
+  }
+  // bubbles that disappeared this frame pop where they were last seen
+  for (const [id, tr] of bulletTrack){ if (tr.seen !== now){ bulletTrack.delete(id); if (POPS.length < 80) POPS.push({x:tr.x, y:tr.y - 16, col:tr.col, r:tr.r, t:0, T:0.28}); } }
+}
+function drawPops(c){
+  for (const p of POPS){
+    const u = p.t/p.T, rad = p.r*(1.3 + 1.6*u);
+    c.globalAlpha = 1 - u; c.strokeStyle = INK; c.lineWidth = 2.2; c.lineCap = 'round'; c.beginPath();
+    for (let k=0;k<6;k++){ const a = k*Math.PI/3 + 0.3; c.moveTo(p.x + Math.cos(a)*rad, p.y + Math.sin(a)*rad); c.lineTo(p.x + Math.cos(a)*(rad + 5), p.y + Math.sin(a)*(rad + 5)); }
+    c.stroke(); c.lineCap = 'butt';
+    c.setLineDash([4, 4]); c.strokeStyle = p.col; c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, rad*0.8, 0, Math.PI*2); c.stroke(); c.setLineDash([]);
+    for (let k=0;k<4;k++){ const a = k*Math.PI/2 + 0.8; soapBubble(c, p.x + Math.cos(a)*rad*1.4, p.y + Math.sin(a)*rad*1.2, 2.2, p.col, false); }
+    c.globalAlpha = 1;
+  }
+}
+// objects that disappear burst into pieces
+const objTrack = new Map(), OBJ_POPS = [];
+function trackObjects(list){
+  const now = clk;
+  for (const o of list){ objTrack.set(o.id, {x:o.x, y:o.y, type:o.type, low: o.hp/o.maxHp < 0.45, seen:now, col:TIN_COLS[(o.id || 0) % TIN_COLS.length]}); }
+  for (const [id, t] of objTrack){ if (t.seen !== now){ objTrack.delete(id); if (t.low && OBJ_POPS.length < 30) OBJ_POPS.push({...t, t:0, T:0.6}); } }
+}
+function drawObjPops(c){
+  for (const p of OBJ_POPS){
+    const u = p.t/p.T, piece = p.type === 'triangle' ? '#E9E3FF' : p.type === 'barrel' ? '#FFFFFF' : p.type === 'gold' ? '#FFD21F' : '#AEB7C2';
+    c.globalAlpha = 1 - u*u; c.lineWidth = 2; c.strokeStyle = INK; c.fillStyle = piece;
+    for (let k=0;k<6;k++){ const a = k*Math.PI/3 + 0.4, d = 14 + 46*u, x = p.x + Math.cos(a)*d, y = p.y - 10 + Math.sin(a)*d*0.8 - 30*u + 50*u*u;
+      c.save(); c.translate(x, y); c.rotate(a + u*6); c.beginPath();
+      if (p.type === 'triangle'){ c.moveTo(0, -6); c.lineTo(6, 5); c.lineTo(-6, 5); c.closePath(); } else rr(c, -6, -4, 12, 8, 3);
+      c.fill(); c.stroke(); c.restore(); }
+    c.globalAlpha = 1;
+  }
 }
 
 function viewScale(){
@@ -804,11 +954,14 @@ function render(){
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(paintCv, 0, 0, WW, WH);
   ctx.lineWidth = 4; ctx.strokeStyle = INK; ctx.strokeRect(-2,-2,WW+4,WH+4);
+  trackObjects(V.objects);
   for (const o of V.objects) if (o.x > x0-60 && o.x < x1+60 && o.y > y0-60 && o.y < y1+60) drawObject(ctx, o);
   for (const b of V.bombs){
     const u = clamp(b.t/b.T, 0, 1), x = b.x0 + (b.x1-b.x0)*u, y = b.y0 + (b.y1-b.y0)*u, h = Math.sin(Math.PI*u)*120;
     ctx.fillStyle = 'rgba(35,42,53,0.18)'; ctx.beginPath(); ctx.ellipse(b.x1, b.y1, b.R*(0.3+0.7*u), b.R*(0.3+0.7*u)*0.6, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x, y - h, 12, 0, Math.PI*2); ctx.fillStyle = oc(b.po); ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = INK; ctx.stroke();
+    const bc = oc(b.po), bx = x, by = y - h, wob = 1 + 0.08*Math.sin(clk*18);   // bubble bomb with paint swirling inside
+    ctx.save(); ctx.translate(bx, by); ctx.scale(wob, 2 - wob); soapBubble(ctx, 0, 0, 16, bc);
+    ctx.rotate(clk*5); ctx.beginPath(); ctx.arc(0, 0, 7, 0.2, Math.PI*1.5); ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.strokeStyle = bc; ctx.stroke(); ctx.lineCap = 'butt'; ctx.restore();
   }
   const vis = t => !t.dead && t.x > x0-140 && t.x < x1+140 && t.y > y0-60 && t.y < y1+170;
   for (const t of V.tanks){
@@ -822,12 +975,7 @@ function render(){
   for (const t of V.tanks) if (vis(t)) items.push({k:t.y + SPR_FEET, t});
   items.sort((p, q) => p.k - q.k);
   for (const it of items){ if (it.o) drawWall(ctx, it.o); else drawPlayer(ctx, it.t, {color: tankColor(V.mode, it.t), scale: popScale(it.t)}); }
-  ctx.lineWidth = 2;
-  for (const b of V.bullets){
-    if (b.x < x0-30 || b.x > x1+30 || b.y < y0-40 || b.y > y1+30) continue;
-    ctx.fillStyle = 'rgba(35,42,53,0.18)'; ctx.beginPath(); ctx.ellipse(b.x, b.y, b.r, b.r*0.45, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(b.x, b.y - 16, b.r, 0, Math.PI*2); ctx.fillStyle = oc(b.po); ctx.fill(); ctx.strokeStyle = INK; ctx.stroke();
-  }
+  drawBullets(ctx, V.bullets, oc, x0, y0, x1, y1);
   for (const t of V.tanks){
     if (!vis(t)) continue;
     const top = t.y + SPR_FEET - 83*SPR_UNIT;
@@ -838,6 +986,7 @@ function render(){
     ctx.fillText(t.name, t.x, top - 4);
   }
   for (const f of FX.rings){ const u = f.t/f.T; ctx.globalAlpha = 1 - u; ctx.lineWidth = 4; ctx.strokeStyle = f.color; ctx.beginPath(); ctx.arc(f.x, f.y, f.r*(0.5 + 0.6*u), 0, Math.PI*2); ctx.stroke(); ctx.globalAlpha = 1; }
+  drawPops(ctx); drawObjPops(ctx);
   for (const f of FX.hits){ const u = f.t/f.T; ctx.globalAlpha = 1 - u; ctx.strokeStyle = INK; ctx.lineWidth = 3; const k = 7 + 5*u, hy = f.y - 20; ctx.beginPath(); ctx.moveTo(f.x-k, hy-k); ctx.lineTo(f.x+k, hy+k); ctx.moveTo(f.x+k, hy-k); ctx.lineTo(f.x-k, hy+k); ctx.stroke(); ctx.globalAlpha = 1; }
   ctx.restore();
   if (session.kind !== 'demo' && V.me) drawHUD();
@@ -1236,6 +1385,7 @@ function frame(now){
   if (f){ const k = Math.min(1, el*(s.kind === 'demo' ? 1.5 : 10)); cam.x += (f.x - cam.x)*k; cam.y += (f.y - cam.y)*k; }
   for (const r of FX.rings) r.t += el; FX.rings = FX.rings.filter(r => r.t < r.T);
   for (const h of FX.hits) h.t += el; FX.hits = FX.hits.filter(h => h.t < h.T);
+  for (const L of [POPS, OBJ_POPS]){ for (const p of L) p.t += el; for (let i = L.length - 1; i >= 0; i--) if (L[i].t >= L[i].T) L.splice(i, 1); }
   for (const q of FX.feed) q.t -= el; FX.feed = FX.feed.filter(q => q.t > 0);
   if (FX.toast){ FX.toast.t -= el; if (FX.toast.t <= 0) FX.toast = null; }
   FX.shake = Math.max(0, FX.shake - el);
