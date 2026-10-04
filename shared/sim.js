@@ -29,8 +29,10 @@ export const OBJ = {can:{hp:18,mass:2,pts:1,r:22,splat:50}, barrel:{hp:110,mass:
 export const TRIANGLE_CHANCE = 0.08, BARREL_CHANCE = 0.22;
 // damage a player takes when bumping into a floating object (at most once every BUMP_CD seconds per object)
 export const MOVE_SCALE = 0.85;   // everyone moves 15% slower, except on enemy paint (which already slows you)
-export const ROLLER_RAM = 0.7;   // Roller collisions hurt 30% less
 export const BUMP_DMG = {can:3, gold:3, triangle:12, barrel:22}, BUMP_CD = 0.6, ROOKIE_BUMP = 3;   // Rookies take 3x bump damage
+// Rollers ram for a third of the normal damage; each Ram damage upgrade adds only +5% (Charge still doubles it)
+export const ROLLER_RAM = 1/3, RAM_PER_UP = 0.05;
+const ramMul = t => t.cls === 'roller' ? ROLLER_RAM*(t.specialT > 0 ? 2 : 1)*(1 + RAM_PER_UP*up(t, 'ram')) : 1;
 export const OBJ_TARGET = 52;   // floating objects kept on the (bigger) map
 export function randomObjectType(){ const r = Math.random(); return r < TRIANGLE_CHANCE ? 'triangle' : r < TRIANGLE_CHANCE + BARREL_CHANCE ? 'barrel' : 'can'; }
 const BOT_NAMES = ['blue_wave','limelight','tangerine','sunny','purp','aqua','redline','honey','moss','minty','skyhigh','indigo','magenta','cocoa','splatcat','drip','smudge','inky','roller_rex','blotto','gloss','tint'];
@@ -610,8 +612,7 @@ export function createSim(opts){
         const close = -vn, J = -(1 + 0.4)*vn/(ia + ib);
         a.vx -= J*ia*nx; a.vy -= J*ia*ny; b.vx += J*ib*nx; b.vy += J*ib*ny;
         if (close > 150){
-          const ram = u => (u.cls === 'roller' ? ROLLER_RAM : 1)*(u.cls === 'roller' && u.specialT > 0 ? 2 : 1)*(1 + 0.15*up(u, 'ram'));
-          const ca = ram(a), cb = ram(b);
+          const ca = ramMul(a), cb = ramMul(b);
           damage(a, 0.08*close*mb*cb, b); damage(b, 0.08*close*ma*ca, a);
         }
       }
