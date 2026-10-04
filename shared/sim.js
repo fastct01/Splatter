@@ -17,7 +17,7 @@ export const CLASSES = {
                ups:[['blast','Blast radius'],['dmg','Bomb damage'],['rate','Reload'],['range','Throw range'],['ink','Ink tank'],['hp','Health']]},
   sprayer:   {label:'Sprayer', r:30, mass:1.0, hp:100, rate:2, speed:450, range:340, dmg:7, ink:8, splat:30, br:7, spread:5, desc:'Spray gun: a 5-shot spread in front', tag:'5-shot spread', spec:'Spin', specLong:'Special: 3 s of spinning spray',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  liner:     {label:'Liner', r:28, mass:0.9, hp:90, rate:1, speed:1125, range:1100, dmg:30, ink:10, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', tag:'Long-range lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
+  liner:     {label:'Liner', r:28, mass:0.9, hp:90, rate:1, speed:1125, range:1100, dmg:30, ink:8, tank:100, refill:2, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', tag:'Long-range lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
                ups:[['dmg','Shot damage'],['range','Range'],['line','Line width'],['rate','Reload'],['ink','Ink tank'],['speed','Move speed']]}
 };
 export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner','rookie'];   // network order: only append
@@ -46,10 +46,11 @@ export function up(t, key){ const u = CLASSES[t.cls].ups; for (let i=0;i<u.lengt
 // how a player looks: one tier per upgrade slot (0 below level 3, 1 from level 3, 2 from level 6), base 3, +729 when all are maxed
 export function lookCode(t){ const st = t.stats || []; let c = 0, all = true; for (let i=0;i<6;i++){ const v = st[i] || 0; c = c*3 + (v >= 6 ? 2 : v >= 3 ? 1 : 0); if (v < 8) all = false; } return c + (all ? 729 : 0); }
 export const maxHpOf = t => (CLASSES[t.cls].hp || 100) + (t.cls === 'roller' ? 15 : 12)*up(t, 'hp');
-export const INK_BASE = 70;   // base ink tank for every class (was 100)
-export const inkCapOf = t => INK_BASE*(1 + 0.12*up(t, 'ink'));
+export const INK_BASE = 70;   // base ink tank (was 100); a class can set its own with tank, and scale its refill with refill
+const tankOf = t => CLASSES[t.cls].tank || INK_BASE;
+export const inkCapOf = t => tankOf(t)*(1 + 0.12*up(t, 'ink'));
 // ink refills slowly until you upgrade the Ink tank: 30% of the old speed, +35% of that per upgrade level (level 8 = a bit faster than before)
-export const inkRefillOf = t => 0.3*(1 + 0.35*up(t, 'ink'));
+export const inkRefillOf = t => 0.3*(1 + 0.35*up(t, 'ink'))*(CLASSES[t.cls].refill || 1);
 export const randomClass = () => CLASS_KEYS[Math.floor(Math.random()*CLASS_KEYS.length)];
 export const START_INK = 0.4;
 const TAU = Math.PI*2;
@@ -308,7 +309,7 @@ export function createSim(opts){
     const key = CLASSES[t.cls].ups[i][0];
     t.stats[i]++; t.points -= cost;
     if (key === 'hp') t.hp += t.cls === 'roller' ? 15 : 12;
-    if (key === 'ink') t.ink += INK_BASE*0.12;
+    if (key === 'ink') t.ink += tankOf(t)*0.12;
     t.level = t.stats.reduce((a,b) => a+b, 0);
     if (t.human) onEvent({k:'lvl', id:t.id, lv:t.level});
     refresh(t);
