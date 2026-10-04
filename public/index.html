@@ -376,7 +376,7 @@ function handleEvent(e, myId){
     case 'hit': FX.hits.push({x:e.x, y:e.y, t:0, T:0.2}); sfx('hit'); break;
     case 'lvl': FX.toast = {text:'Level ' + e.lv, t:1.6}; sfx('levelup'); break;
     case 'cls': if (session.kind !== 'demo') FX.toast = {text:'Class unlocked: pick one', t:2}; break;
-    case 'xform': if (session.kind !== 'demo') FX.toast = {text:'You are a ' + CLASSES[e.cls].label + ' now' + (e.refund ? ' · +' + e.refund*S.ROOKIE_COST + ' points back' : ''), t:2.4}; sfx('levelup'); break;
+    case 'xform': if (session.kind !== 'demo') FX.toast = {text:'You are a ' + CLASSES[e.cls].label + ' now' + (e.refund ? ' · +' + e.refund + ' points back' : ''), t:2.4}; sfx('levelup'); break;
     case 'toast': FX.toast = {text:e.text, t:1.8}; break;
     case 'shake': FX.shake = Math.max(FX.shake, e.s); break;
     case 'end': if (session.kind !== 'demo'){ sfx('end'); showResults(); } break;

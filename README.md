@@ -44,7 +44,7 @@ Everyone starts each match as a **Rookie** with a basic paint pistol. Rookie upg
 
 Upgrades show on your player in every facing direction: level 3 adds a small change (bigger muzzle, drum magazine, armour vest, painted sneakers), level 6 a bigger one (twin barrel, spikes, helmet, second ink tank). When every upgrade is maxed the antenna light turns gold. The designs are on the Class upgrades board in the mockups.
 
-Your level is the number of upgrades you've bought, and the bar under it fills with the points towards the next one (for example 3/4). Upgrade points come only from splatting players (6 points, plus half the victim's level) and breaking floating objects (paint tin 2, prism 5, drum 6, gold 20); painting the floor gives none. Rookie upgrades cost 4 points, class upgrades 10, and each goes up to 8 levels. In bot tests most players unlock their class 40 s to 2 min into the 3-minute match.
+Your level is the number of upgrades you've bought, and the bar under it fills with the points towards the next one (for example 3/4). Upgrade points come only from splatting players (6 points, plus half the victim's level) and breaking floating objects (paint tin 2, prism 5, drum 6, gold 20); painting the floor gives none. A Rookie's first two upgrades cost 2 points, the next ones 4, and class upgrades 10, and each goes up to 8 levels. In bot tests most players unlock their class 40 s to 2 min into the 3-minute match.
 
 ## Controls
 

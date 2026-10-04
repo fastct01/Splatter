@@ -34,10 +34,13 @@ export function randomObjectType(){ const r = Math.random(); return r < TRIANGLE
 const BOT_NAMES = ['blue_wave','limelight','tangerine','sunny','purp','aqua','redline','honey','moss','minty','skyhigh','indigo','magenta','cocoa','splatcat','drip','smudge','inky','roller_rex','blotto','gloss','tint'];
 
 // upgrade points come straight from splats and broken objects; an upgrade costs this many points
-export const UPGRADE_COST = 10, ROOKIE_COST = 4;
+export const UPGRADE_COST = 10, ROOKIE_COST = 4, ROOKIE_FIRST_COST = 2, ROOKIE_FIRST_N = 2;   // a Rookie's first 2 upgrades cost 2 points
 export const SPLAT_POINTS = v => 6 + Math.floor(v.level/2);   // points for splatting a player
 // Rookie upgrades are cheaper so the class menu arrives within the first minute or so
-export const upgradeCost = t => t.cls === 'rookie' ? ROOKIE_COST : UPGRADE_COST;
+const bought = t => (t.stats || []).reduce((a,b) => a+b, 0);
+export const upgradeCost = t => t.cls !== 'rookie' ? UPGRADE_COST : bought(t) < ROOKIE_FIRST_N ? ROOKIE_FIRST_COST : ROOKIE_COST;
+// points a Rookie has spent on n upgrades
+const rookieSpent = n => Math.min(n, ROOKIE_FIRST_N)*ROOKIE_FIRST_COST + Math.max(0, n - ROOKIE_FIRST_N)*ROOKIE_COST;
 // points a player has put into one of their class's upgrades
 export function up(t, key){ const u = CLASSES[t.cls].ups; for (let i=0;i<u.length;i++) if (u[i][0] === key) return t.stats[i] || 0; return 0; }
 // how a player looks: one tier per upgrade slot (0 below level 3, 1 from level 3, 2 from level 6), base 3, +729 when all are maxed
@@ -291,12 +294,13 @@ export function createSim(opts){
     const hpF = t.mhp ? t.hp/t.mhp : 1, inkF = t.icap ? t.ink/t.icap : 1;
     const stats = newUps.map(u => { const j = oldUps.findIndex(o => o[0] === u[0]); return j >= 0 ? t.stats[j] : 0; });
     const kept = stats.reduce((a,b) => a+b, 0), had = t.stats.reduce((a,b) => a+b, 0);
-    t.points += (had - kept)*ROOKIE_COST;
+    const refund = had ? Math.round(rookieSpent(had)*(had - kept)/had) : 0;   // give back what the dropped upgrades actually cost
+    t.points += refund;
     t.cls = k; t.r = CLASSES[k].r; t.stats = stats; t.classPending = false;
     t.specialCd = 0; t.specialT = 0; t.cluster = false; t.flash = 0.18;
     refresh(t); t.hp = Math.max(1, hpF*t.mhp); t.ink = inkF*t.icap;
     if (!t.dead){ stamp(t.x, t.y, 70, paintOwner(t), null); onEvent({k:'ring', x:t.x, y:t.y, r:120, o:paintOwner(t)}); }
-    onEvent({k:'xform', id:t.id, cls:k, refund:(had - kept)});
+    onEvent({k:'xform', id:t.id, cls:k, refund});
   }
   function upgrade(t, i){
     const cost = upgradeCost(t);
