@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 // Bubble Arena game server: serves the client and runs authoritative game rooms over WebSockets.
 import http from 'node:http';
 import fs from 'node:fs';
@@ -43,7 +44,7 @@ class Room {
   roster(){ return this.sim.G.tanks.map(t => ({id:t.id, name:t.name, slot:t.slot, team:t.team, human:t.human})); }
   matchInfo(c){
     const G = this.sim.G;
-    return {type:'match', you:c.tankId, mode:this.mode, obstacles:G.obstacles, grid:encodeGrid(G.grid), counts:Array.from(G.counts),
+    return {type:'match', build:BUILD, you:c.tankId, mode:this.mode, obstacles:G.obstacles, grid:encodeGrid(G.grid), counts:Array.from(G.counts),
             paintable:G.paintable, time:G.time, phase:this.phase, endT:this.endT, roster:this.roster()};
   }
   join(c, name){
@@ -130,7 +131,16 @@ function send(c, msg){
 setInterval(() => { for (const r of rooms.values()) r.tick(); }, TICK_MS);
 
 /* ---------- HTTP ---------- */
+// build id: changes whenever the game files change, so open tabs running old code know to reload
+const BUILD = crypto.createHash('sha1').update(fs.readFileSync(path.join(PUBLIC, 'index.html'))).update(fs.readFileSync(new URL('../shared/sim.js', import.meta.url))).digest('hex').slice(0, 10);
 function serveFile(res, file){
+  if (path.basename(file) === 'index.html' && path.dirname(file) === PUBLIC){
+    fs.readFile(file, 'utf8', (err, txt) => {
+      if (err){ res.writeHead(404, {'content-type':'text/plain'}); res.end('Not found'); return; }
+      res.writeHead(200, {'content-type':'text/html; charset=utf-8', 'cache-control':'no-cache'}); res.end(txt.replace('__BUILD__', BUILD));
+    });
+    return;
+  }
   fs.stat(file, (err, st) => {
     if (err || !st.isFile()){ res.writeHead(404, {'content-type':'text/plain'}); res.end('Not found'); return; }
     res.writeHead(200, {'content-type': MIME[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-cache'});
@@ -145,7 +155,7 @@ const server = http.createServer((req, res) => {
     let players = 0; const byMode = {ffa:0, teams:0};
     for (const r of rooms.values()){ players += r.clients.size; byMode[r.mode] += r.clients.size; }
     res.writeHead(200, {'content-type':'application/json', 'cache-control':'no-store'});
-    res.end(JSON.stringify({players, rooms: rooms.size, byMode})); return;
+    res.end(JSON.stringify({players, rooms: rooms.size, byMode, build: BUILD})); return;
   }
   let base = PUBLIC, rel = p === '/' ? '/index.html' : p;
   if (rel.startsWith('/shared/')){ base = SHARED; rel = rel.slice('/shared'.length); }

@@ -170,6 +170,8 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 import * as S from '/shared/sim.js';
 const {WW, WH, CELL, GW, GH, PCOL, PNAME, TCOL, TNAME, CLASSES, CLASS_LIST, CLASS_KEYS, OBJ, OBJ_TYPES} = S;
 const $ = id => document.getElementById(id);
+const BUILD = '__BUILD__';   // filled in by the server; an open tab with older code reloads itself
+const outdated = b => b && BUILD !== '__BUILD' + '__' && b !== BUILD;
 const cv = $('game'), ctx = cv.getContext('2d');
 let VW = 0, VH = 0, DPR = 1, SAFE = {t:0,r:0,b:0,l:0};
 const PS = 0.5, INTERP = 100;
@@ -252,6 +254,7 @@ function startNet(mode){
 }
 
 function onNet(s, m, timeout){
+  if (m.type === 'match' && outdated(m.build)){ s.closing = true; try { s.ws.close(); } catch(e) {} setStatus('The game was updated. Loading the new version…'); setTimeout(() => location.reload(), 400); return; }
   if (m.type === 'match'){
     if (!s.joined){
       clearTimeout(timeout); s.joined = true; $('playOnline').disabled = false; setStatus('');
@@ -1220,7 +1223,7 @@ function drawHUD(){
   const hint = p.surface === 1 ? 'On your colour: +40% speed · regen on' : p.surface === -1 ? 'On enemy paint: slowed' : 'Neutral floor';
   text(merged && p.surface === 1 ? 'Your colour: fast + regen' : hint, ix + 14*u, iy + hy + 66*u, '400 ' + Math.round(13*u) + 'px ' + FB, p.surface === -1 ? ALERT : MUTED);
   const cost = S.upgradeCost(p), pts = Math.min(p.points || 0, cost), ready = (p.points || 0) >= cost;
-  const xpFrac = ready ? 1 : clamp((pts + (p.ptsXp || 0)/S.XP_PER_POINT)/cost, 0, 1);
+  const xpFrac = ready ? 1 : clamp(pts/cost, 0, 1);
   const tail = p.cls === 'rookie' ? (p.classPending ? (merged ? ' · pick class' : ' · pick your class') : merged ? '' : ' · class at level ' + S.CLASS_AT) : '';
   const lvlLine = 'Level ' + (p.level || 0) + ' · ' + C.label + ' · ' + (ready ? 'upgrade ready' : pts + '/' + cost + (merged ? '' : ' points to level ' + ((p.level || 0) + 1))) + tail;
   if (merged){
@@ -1385,7 +1388,7 @@ $('soundBtn').addEventListener('click', () => setMuted(!audio.muted)); setMuted(
 $('quit').addEventListener('click', toTitle);
 async function refreshOnline(){
   if ($('title').hidden) return;
-  try { const r = await fetch('/api/status', {cache:'no-store'}); if (!r.ok) return; const j = await r.json(); if (!$('status').classList.contains('err')) setStatus(j.players === 1 ? '1 player online' : j.players + ' players online'); } catch(e) {}
+  try { const r = await fetch('/api/status', {cache:'no-store'}); if (!r.ok) return; const j = await r.json(); if (outdated(j.build)){ location.reload(); return; } if (!$('status').classList.contains('err')) setStatus(j.players === 1 ? '1 player online' : j.players + ' players online'); } catch(e) {}
 }
 setInterval(refreshOnline, 8000);
 
