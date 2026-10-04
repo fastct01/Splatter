@@ -7,17 +7,17 @@ export const PNAME = ['','Pink','Red','Orange','Amber','Yellow','Lime','Green','
 export const TCOL = [null,'#2D8CFF','#FF8A1F','#FFD21F'];
 export const TNAME = ['','Blue','Orange','Yellow'];
 export const CLASSES = {
-  rookie:    {label:'Rookie', r:28, mass:1.0, hp:100, rate:2.5, speed:650, range:480, dmg:10, ink:3, splat:40, br:7, desc:'Starter with a basic paint pistol', tag:'', spec:'', specLong:'',
+  rookie:    {label:'Rookie', r:28, mass:1.0, hp:100, rate:2.5, speed:490, range:480, dmg:10, ink:3, splat:40, br:7, desc:'Starter with a basic paint pistol', tag:'', spec:'', specLong:'',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, rate:3, speed:700, range:520, dmg:12, ink:3, splat:42, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
+  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, rate:3, speed:525, range:520, dmg:12, ink:3, splat:42, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  roller:    {label:'Roller', r:34, mass:1.4, hp:120, rate:2, speed:700, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by walking', tag:'Paints as it walks', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
+  roller:    {label:'Roller', r:34, mass:1.4, hp:120, rate:2, speed:525, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by walking', tag:'Paints as it walks', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
                ups:[['trail','Roller width'],['ram','Ram damage'],['scd','Charge reload'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  bomber:    {label:'Bomber', r:32, mass:1.2, hp:100, rate:0.8, speed:900, range:470, dmg:35, ink:12, splat:110, br:12, bomb:true, desc:'Lobs ink bombs that burst into big splashes', tag:'Big splash bombs', spec:'Cluster', specLong:'Special: next bomb splits into 4',
+  bomber:    {label:'Bomber', r:32, mass:1.2, hp:100, rate:0.8, speed:675, range:470, dmg:35, ink:12, splat:110, br:12, bomb:true, desc:'Lobs ink bombs that burst into big splashes', tag:'Big splash bombs', spec:'Cluster', specLong:'Special: next bomb splits into 4',
                ups:[['blast','Blast radius'],['dmg','Bomb damage'],['rate','Reload'],['range','Throw range'],['ink','Ink tank'],['hp','Health']]},
-  sprayer:   {label:'Sprayer', r:30, mass:1.0, hp:100, rate:2, speed:600, range:340, dmg:7, ink:8, splat:30, br:7, spread:5, desc:'Spray gun: a 5-shot spread in front', tag:'5-shot spread', spec:'Spin', specLong:'Special: 3 s of spinning spray',
+  sprayer:   {label:'Sprayer', r:30, mass:1.0, hp:100, rate:2, speed:450, range:340, dmg:7, ink:8, splat:30, br:7, spread:5, desc:'Spray gun: a 5-shot spread in front', tag:'5-shot spread', spec:'Spin', specLong:'Special: 3 s of spinning spray',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  liner:     {label:'Liner', r:28, mass:0.9, hp:90, rate:1, speed:1500, range:1100, dmg:30, ink:10, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', tag:'Long-range lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
+  liner:     {label:'Liner', r:28, mass:0.9, hp:90, rate:1, speed:1125, range:1100, dmg:30, ink:10, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', tag:'Long-range lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
                ups:[['dmg','Shot damage'],['range','Range'],['line','Line width'],['rate','Reload'],['ink','Ink tank'],['speed','Move speed']]}
 };
 export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner','rookie'];   // network order: only append
@@ -342,14 +342,14 @@ export function createSim(opts){
     const ca = Math.cos(t.aim), sa = Math.sin(t.aim);
     if (C.bomb){
       const d = clamp(t.aimDist, 120, C.range*rm);
-      G.bombs.push({id:nextB++, x0:t.x + ca*t.r, y0:t.y + sa*t.r, x1:clamp(t.x + ca*d, 30, WW-30), y1:clamp(t.y + sa*d, 30, WH-30), t:0, T:0.6, R:110*(1 + 0.10*up(t, 'blast')), dmg:C.dmg*dm, cluster:t.cluster, owner:t, po:paintOwner(t)});
+      G.bombs.push({id:nextB++, x0:t.x + ca*t.r, y0:t.y + sa*t.r, x1:clamp(t.x + ca*d, 30, WW-30), y1:clamp(t.y + sa*d, 30, WH-30), t:0, T:0.75, R:110*(1 + 0.10*up(t, 'blast')), dmg:C.dmg*dm, cluster:t.cluster, owner:t, po:paintOwner(t)});
       t.cluster = false;
       const J = 0.35*900*0.15/C.mass; t.vx -= ca*J; t.vy -= sa*J;
       return;
     }
     if (C.spread){ for (let k=0;k<C.spread;k++) spawnBullet(t, t.aim + (k - (C.spread-1)/2)*0.18, C, dm, rm); const J = 6/C.mass; t.vx -= ca*J; t.vy -= sa*J; return; }
     spawnBullet(t, t.aim, C, dm, rm);
-    const J = C.dmg/100*C.speed*0.15/C.mass; t.vx -= ca*J; t.vy -= sa*J;
+    const J = C.dmg/100*C.speed/0.75*0.15/C.mass; t.vx -= ca*J; t.vy -= sa*J;
   }
   function spawnBullet(t, a, C, dm, rm){
     const ca = Math.cos(a), sa = Math.sin(a), m = t.r*1.4;
