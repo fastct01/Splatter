@@ -9,7 +9,7 @@ export const TNAME = ['','Blue','Orange','Yellow'];
 export const CLASSES = {
   rookie:    {label:'Rookie', r:28, mass:1.0, hp:100, rate:1, speed:490, range:480, dmg:10, ink:3, splat:40, br:7, desc:'Starter with a basic paint pistol', tag:'', spec:'', specLong:'',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, refill:1.2, rate:3, speed:525, range:520, dmg:12, ink:3, splat:42, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
+  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, refill:1.2, flatRefill:true, rate:3, speed:525, range:520, dmg:12, ink:3, splat:42, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
   roller:    {label:'Roller', r:34, mass:1.4, hp:120, rate:2, speed:525, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by walking', tag:'Paints as it walks', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
                ups:[['trail','Roller width'],['ram','Ram damage'],['scd','Charge reload'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
@@ -24,7 +24,7 @@ export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner','rookie']
 export const CLASS_KEYS = ['splat','roller','bomber','liner'];   // classes a Rookie can transform into
 export const CLASS_AT = 5;                                       // upgrades bought before the class menu opens
 export const OBJ_TYPES = ['can','barrel','gold','triangle'];
-export const OBJ = {can:{hp:18,mass:2,pts:2,r:22,splat:50}, barrel:{hp:110,mass:6,pts:6,r:30,splat:120}, gold:{hp:200,mass:4,pts:20,r:26,splat:160}, triangle:{hp:75,mass:3,pts:5,r:26,splat:75}};
+export const OBJ = {can:{hp:18,mass:2,pts:1,r:22,splat:50}, barrel:{hp:110,mass:6,pts:6,r:30,splat:120}, gold:{hp:200,mass:4,pts:20,r:26,splat:160}, triangle:{hp:75,mass:3,pts:5,r:26,splat:75}};
 // Share of normal spawns: triangles are rare (about 1 in 12)
 export const TRIANGLE_CHANCE = 0.08, BARREL_CHANCE = 0.22;
 // damage a player takes when bumping into a floating object (at most once every BUMP_CD seconds per object)
@@ -456,7 +456,8 @@ export function createSim(opts){
     t.reload -= dt; t.specialCd -= dt; t.specialT -= dt; t.protect -= dt; t.flash -= dt;
     const cap = t.icap, moving = sp > 30, since = G.clock - t.lastHit;
     const refill = inkRefillOf(t);
-    if (t.surface === 1) t.ink += cap*(moving ? 0.30 : 0.45)*refill*dt; else if (t.surface === 0) t.ink += cap*0.06*refill*dt;
+    if (CLASSES[t.cls].flatRefill) t.ink += cap*(moving ? 0.30 : 0.45)*refill*(t.surface === 1 ? 1.05 : 1)*dt;   // Blaster: same refill on any floor, only +5% on its own paint
+    else if (t.surface === 1) t.ink += cap*(moving ? 0.30 : 0.45)*refill*dt; else if (t.surface === 0) t.ink += cap*0.06*refill*dt;
     if (t.ink > cap) t.ink = cap;
     if (t.surface === 1 && since > 2) t.hp += 6*dt; else if (t.surface === 0 && since > 4) t.hp += 1*dt;
     if (t.surface === -1 && t.protect <= 0) t.hp = Math.max(Math.min(t.hp,1), t.hp - 3*dt);
