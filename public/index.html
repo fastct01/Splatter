@@ -509,8 +509,8 @@ function spriteSVG(base, col, gun, lvl, flash, fr, L){
   const cap = (x, y, w) => `<rect x="${x}" y="${y}" width="${w}" height="5" rx="1.5" fill="${K}"/>`;
   // ---- legs and shoes (move speed: painted sneakers, then a heel wing)
   const leg = (x, h) => `<rect x="${x}" y="-13" width="8" height="${h}" rx="3" fill="${G}"/>`;
-  const shoe = (cx, cy) => L.speed ? `<ellipse cx="${cx}" cy="${cy-0.5}" rx="6.5" ry="4" fill="${C}" ${st(2)}/><line x1="${cx-3}" y1="${cy-1.6}" x2="${cx+2.5}" y2="${cy-1.6}" stroke="${W}" stroke-width="1.6" stroke-linecap="round"/>` : `<ellipse cx="${cx}" cy="${cy}" rx="6" ry="3.5" fill="${K}"/>`;
-  const wing = (cx, cy, flip) => L.speed === 2 ? `<path transform="translate(${cx} ${cy+1})${flip ? ' scale(-1 1)' : ''}" d="M-5 -4 C-9 -13 -17 -12 -16 -6 C-14 -7 -12 -6 -11 -4 C-13 -4 -14 -2 -12 -1 Z" fill="${W}" ${st(1.6)} stroke-linejoin="round"/>` : '';
+  const shoe = (cx, cy) => L.speed ? `<ellipse cx="${cx}" cy="${cy-0.5}" rx="6.5" ry="4" fill="${C}" ${st(2)}/><line x1="${cx-3}" y1="${cy-1.6}" x2="${cx+2.5}" y2="${cy-1.6}" stroke="${W}" stroke-width="1.6" stroke-linecap="round"/>` + (L.speed === 2 ? `<line x1="${cx-2}" y1="${cy+0.6}" x2="${cx+3.5}" y2="${cy+0.6}" stroke="${W}" stroke-width="1.4" stroke-linecap="round"/>` : '') : `<ellipse cx="${cx}" cy="${cy}" rx="6" ry="3.5" fill="${K}"/>`;
+  const wing = () => '';
   const speedLines = () => L.speed === 2 ? `<g stroke="${K}" stroke-width="2.5" stroke-linecap="round" opacity="0.35"><line x1="-45" y1="-42" x2="-37" y2="-42"/><line x1="-47" y1="-31" x2="-39" y2="-31"/><line x1="-44" y1="-20" x2="-37" y2="-20"/></g>` : '';
   const legsSide = () => { const p = fr === 1 ? [[-11,12,-6,-1],[5,12,12,-1]] : fr === 2 ? [[-4,9,1,-4],[-1,12,4,-1]] : [[-6,12,0,-1],[1,12,8,-1]];
     return leg(p[0][0], p[0][1]) + leg(p[1][0], p[1][1]) + shoe(p[0][2], p[0][3]) + shoe(p[1][2], p[1][3]) + wing(p[0][2], p[0][3]); };
@@ -554,7 +554,7 @@ function spriteSVG(base, col, gun, lvl, flash, fr, L){
       if (t('rate') >= 1) s += `<circle cx="9" cy="${th/2+4}" r="5" fill="${col}" ${st(2.2)}/><circle cx="9" cy="${th/2+4}" r="1.7" fill="${K}"/>`;
       s += `<rect x="0" y="${-th/2}" width="${L2}" height="${th}" rx="3" fill="${G}" ${st(2.5)}/>`;
       if (t('rate') === 2) s += `<rect x="2" y="${-th/2-6}" width="${L2-7}" height="5" rx="2" fill="${G}" ${st(2)}/><rect x="${L2-7}" y="${-th/2-7}" width="5" height="7" rx="2" fill="${col}" ${st(2)}/>`;
-      if (t('range') === 2) s += `<rect x="9" y="${-th/2-12}" width="3" height="6" fill="${G}"/><rect x="2" y="${-th/2-17}" width="18" height="6" rx="3" fill="${K}"/><circle cx="18" cy="${-th/2-14}" r="1.9" fill="${W}" opacity="0.9"/>`;
+      if (t('range') === 2){ const sy = -th/2 - (t('rate') === 2 ? 12 : 6); s += `<rect x="${L2*0.5}" y="${sy}" width="14" height="5.5" rx="2.7" fill="${K}"/><circle cx="${L2*0.5+12}" cy="${sy+2.7}" r="1.8" fill="${W}" opacity="0.9"/>`; }
       tw = 7 + tex;
       s += `<rect x="${L2-4}" y="${-th/2-1.5-tex}" width="${tw}" height="${th+3+2*tex}" rx="2.5" fill="${col}" ${st(2.5)}/>`;
       if (t('dmg') === 2){ const e = L2 - 4 + tw; s += `<path d="M${e} ${-th/2+0.5} L${e+6} ${-th/2-3.5} L${e+6} ${th/2+3.5} L${e} ${th/2-0.5} Z" fill="${col}" ${st(2.2)} stroke-linejoin="round"/>`; }
@@ -573,7 +573,7 @@ function spriteSVG(base, col, gun, lvl, flash, fr, L){
       if (t('range') === 2) s += `<g stroke="${K}" stroke-width="2.6" stroke-linecap="round"><line x1="${L2*0.7}" y1="2" x2="${L2*0.7-4}" y2="12"/><line x1="${L2*0.7}" y1="2" x2="${L2*0.7+5}" y2="12"/></g>`;
       if (t('rate')) s += `<rect x="10" y="${th/2-1}" width="7" height="${t('rate') === 2 ? 11 : 8}" rx="2" fill="${col}" ${st(2.2)}/>`;
       s += `<rect x="0" y="${-th/2}" width="${L2}" height="${th}" rx="2" fill="${G}" ${st(2.5)}/>`;
-      s += t('range') ? `<rect x="11" y="${-th/2-2}" width="3" height="3" fill="${G}"/><rect x="3" y="${-th/2-9}" width="21" height="7" rx="3.5" fill="${K}"/><circle cx="22" cy="${-th/2-5.5}" r="2.2" fill="${W}" opacity="0.9"/>` : `<rect x="6" y="${-th/2-6}" width="15" height="5" rx="2.5" fill="${K}"/>`;
+      s += t('range') ? `<rect x="${L2*0.35}" y="${-th/2-7}" width="20" height="7" rx="3.5" fill="${K}"/><circle cx="${L2*0.35+17.5}" cy="${-th/2-3.5}" r="2.2" fill="${W}" opacity="0.9"/>` : `<rect x="${L2*0.35}" y="${-th/2-5}" width="15" height="5" rx="2.5" fill="${K}"/>`;
       tw = [7, 9, 11][t('dmg')]; tex = t('dmg') ? 1.5 : 0;
       s += `<rect x="${L2-4}" y="${-th/2-1.5-tex}" width="${tw}" height="${th+3+2*tex}" rx="2" fill="${col}" ${st(2.5)}/>`;
       if (t('dmg') === 2) s += `<rect x="${L2-1}" y="${-th/2}" width="1.5" height="${th}" fill="${K}"/><rect x="${L2+2.5}" y="${-th/2}" width="1.5" height="${th}" fill="${K}"/>`;
@@ -590,7 +590,7 @@ function spriteSVG(base, col, gun, lvl, flash, fr, L){
       const bw = 30 + (t('range') ? 8 : 0), btx = bw - 5, btw = t('dmg') ? 9 : 7, bte = btx + btw;
       s += `<rect x="-2" y="-28" width="${bw}" height="9" rx="3" fill="${G}" ${st(2.5)}/><circle cx="9" cy="-30" r="4.5" fill="${col}" ${st(2)}/>`;
       if (t('rate') === 2) s += `<rect x="2" y="-36" width="${bw-9}" height="6" rx="2" fill="${G}" ${st(2.2)}/><rect x="${bw-9}" y="-37" width="5" height="8" rx="2" fill="${col}" ${st(2.2)}/>`;
-      if (t('range') === 2) s += `<rect x="12" y="-42" width="3" height="7" fill="${G}"/><rect x="4" y="-48" width="20" height="7" rx="3.5" fill="${K}"/><circle cx="22" cy="-44.5" r="2.2" fill="${W}" opacity="0.9"/>`;
+      if (t('range') === 2){ const sy = t('rate') === 2 ? -43 : -36; s += `<rect x="25" y="${sy+5}" width="3" height="${t('rate') === 2 ? 3 : 4}" fill="${G}"/><rect x="18" y="${sy}" width="16" height="6.5" rx="3.2" fill="${K}"/><circle cx="32" cy="${sy+3.2}" r="2" fill="${W}" opacity="0.9"/>`; }
       s += `<rect x="${btx}" y="${t('dmg') ? -31.5 : -29.5}" width="${btw}" height="${t('dmg') ? 16 : 12}" rx="2.5" fill="${col}" ${st(2.5)}/>`;
       if (t('dmg') === 2) s += `<path d="M${bte} -30 L${bte+7} -35 L${bte+7} -12 L${bte} -17 Z" fill="${col}" ${st(2.5)} stroke-linejoin="round"/><circle cx="${bte+4}" cy="-8" r="2.4" fill="${col}" ${st(1.5)}/>`;
       if (t('rate')) s += `<circle cx="10" cy="-14" r="6" fill="${col}" ${st(2.5)}/><circle cx="10" cy="-14" r="2" fill="${K}"/>`;
@@ -622,7 +622,7 @@ function spriteSVG(base, col, gun, lvl, flash, fr, L){
       s += `<rect x="-9" y="-29" width="13" height="10" rx="3" fill="${G}" ${st(2.5)}/>`;
       if (t('range') === 2) s += `<g stroke="${K}" stroke-width="2.8" stroke-linecap="round"><line x1="34" y1="-22" x2="29" y2="-9"/><line x1="34" y1="-22" x2="40" y2="-9"/></g>`;
       s += `<rect x="2" y="-27" width="${lbl}" height="6" rx="2" fill="${G}" ${st(2.5)}/>`;
-      s += t('range') ? `<rect x="14" y="-31" width="3" height="4" fill="${G}"/><rect x="4" y="-39" width="25" height="8" rx="4" fill="${K}"/><circle cx="27" cy="-35" r="2.6" fill="${W}" opacity="0.9"/>` : `<rect x="8" y="-35" width="17" height="6" rx="3" fill="${K}"/>`;
+      s += t('range') ? `<rect x="21" y="-30" width="3" height="3" fill="${G}"/><rect x="12" y="-37" width="23" height="7.5" rx="3.7" fill="${K}"/><circle cx="33" cy="-33.2" r="2.4" fill="${W}" opacity="0.9"/>` : `<rect x="14" y="-33" width="17" height="6" rx="3" fill="${K}"/>`;
       if (t('rate')) s += `<rect x="12" y="-21" width="8" height="${t('rate') === 2 ? 13 : 9}" rx="2" fill="${col}" ${st(2.5)}/>`;
       s += `<rect x="${ltx}" y="${t('dmg') ? -30 : -28.5}" width="${ltw}" height="${t('dmg') ? 12 : 9}" rx="2" fill="${col}" ${st(2.5)}/>`;
       if (t('dmg') === 2) s += `<rect x="${ltx+3}" y="-28" width="1.6" height="8" fill="${K}"/><rect x="${ltx+6.2}" y="-28" width="1.6" height="8" fill="${K}"/>`;
