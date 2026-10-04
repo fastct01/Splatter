@@ -766,43 +766,40 @@ const OBJ_SPRITES = new Map();
 const f1 = v => (Math.round(v*10)/10).toString();
 const SPLAT_D = 'M0,-40 C20,-44 30,-30 42,-34 C50,-20 36,-6 46,8 C52,22 30,26 26,40 C14,50 -4,36 -18,44 C-34,46 -30,26 -44,16 C-52,0 -36,-10 -40,-26 C-36,-40 -16,-34 0,-40 Z';
 function tinSVG(paint, dmg, gold){
-  const s = 72, x = 0, R = s*0.5, ry = R*0.36, Hs = s*0.5, y = -Hs*0.35;
+  // a square paint tin seen at the game's 2.5D angle: flat top with a lid, straight front with a label
+  const R = 34, D = 17, Hs = 38, top = -Hs*0.32, rx = 6;
   const [hi, base, dark, shine] = gold ? ['#FFE680','#FFD21F','#D9A800','#FFF4B8'] : ['#C9D1DA','#AEB7C2','#8C97A4','#E6EBF0'];
   const label = gold ? '#FFB020' : paint;
-  const yb = xo => y + Hs + ry*Math.sqrt(Math.max(0, 1 - (xo/R)**2));
-  let g = `<ellipse cx="${f1(x+4)}" cy="${f1(y+Hs+ry*0.6)}" rx="${f1(R*1.05)}" ry="${f1(ry*1.1)}" fill="${INK}" opacity="0.16"/>`;
-  const body = `M${f1(x-R)} ${f1(y)} L${f1(x-R)} ${f1(y+Hs)} A${f1(R)} ${f1(ry)} 0 0 0 ${f1(x+R)} ${f1(y+Hs)} L${f1(x+R)} ${f1(y)} Z`;
-  g += `<path d="${body}" fill="${base}"/>`;
-  for (const [a, b, col, op] of [[0.55, 1.0, dark, 1], [-0.62, -0.38, shine, 0.9], [0.2, 0.3, hi, 0.6]]){
-    const xa = x + a*R, xb = x + b*R;
-    g += b >= 1 ? `<path d="M${f1(xa)} ${f1(y)} L${f1(xb)} ${f1(y)} L${f1(xb)} ${f1(y+Hs)} A${f1(R)} ${f1(ry)} 0 0 1 ${f1(xa)} ${f1(yb(a*R))} Z" fill="${col}" opacity="${op}"/>`
-                : `<path d="M${f1(xa)} ${f1(y)} L${f1(xb)} ${f1(y)} L${f1(xb)} ${f1(yb(b*R))} L${f1(xa)} ${f1(yb(a*R))} Z" fill="${col}" opacity="${op}"/>`;
-  }
-  const band = (t0, t1, fill, sw) => `<path d="M${f1(x-R)} ${f1(y+t0)} A${f1(R)} ${f1(ry)} 0 0 0 ${f1(x+R)} ${f1(y+t0)} L${f1(x+R)} ${f1(y+t1)} A${f1(R)} ${f1(ry)} 0 0 1 ${f1(x-R)} ${f1(y+t1)} Z" fill="${fill}" stroke="${INK}" stroke-width="${sw}"/>`;
-  const a1 = Hs*0.3, a2 = Hs*0.84;
-  g += band(a1, a2, '#F4EFE6', 1.6) + band(a2 - (a2-a1)*0.24, a2, label, 1.2);
-  g += `<path transform="translate(${f1(x-R*0.3)} ${f1(y+a1+ry*0.95+(a2-a1)*0.22)}) scale(${f1(s/420*100)/100})" d="${SPLAT_D}" fill="${label}" stroke="${INK}" stroke-width="${f1(1.2*420/s)}"/>`;
-  g += `<path d="M${f1(x-R)} ${f1(y+Hs-2)} A${f1(R)} ${f1(ry)} 0 0 0 ${f1(x+R)} ${f1(y+Hs-2)}" fill="none" stroke="${dark}" stroke-width="2.4"/>`;
-  g += `<path d="${body}" fill="none" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
-  if (dmg >= 1) g += `<path d="M${f1(x-R*0.75)} ${f1(y+Hs*0.95)} q${f1(R*0.12)} ${f1(-Hs*0.12)} ${f1(R*0.26)} ${f1(-Hs*0.02)}" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round"/><ellipse cx="${f1(x+R*0.62)}" cy="${f1(y+Hs*0.2)}" rx="${f1(R*0.13)}" ry="${f1(Hs*0.1)}" fill="${dark}" opacity="0.8"/>`;
-  if (dmg >= 2) g += `<path d="M${f1(x+R*0.1)} ${f1(y+Hs*1.05)} l${f1(R*0.12)} ${f1(-Hs*0.2)} l${f1(R*0.12)} ${f1(Hs*0.12)}" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="${f1(x-R*0.55)}" cy="${f1(y+Hs*0.45)}" rx="${f1(R*0.12)}" ry="${f1(Hs*0.12)}" fill="${dark}" opacity="0.8"/>`;
-  g += `<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="${f1(R)}" ry="${f1(ry)}" fill="${hi}" stroke="${INK}" stroke-width="3"/>`;
+  const L = -R, Rr = R, B = top + Hs;
+  let g = `<rect x="${L+5}" y="${f1(B-4)}" width="${2*R}" height="12" rx="6" fill="${INK}" opacity="0.16"/>`;
+  // front face with metal shading
+  g += `<path d="M${L} ${f1(top)} L${Rr} ${f1(top)} L${Rr} ${f1(B-rx)} Q${Rr} ${f1(B)} ${Rr-rx} ${f1(B)} L${L+rx} ${f1(B)} Q${L} ${f1(B)} ${L} ${f1(B-rx)} Z" fill="${base}"/>`;
+  g += `<rect x="${f1(R*0.5)}" y="${f1(top)}" width="${f1(R*0.5)}" height="${f1(Hs-1)}" fill="${dark}"/><rect x="${f1(-R*0.66)}" y="${f1(top)}" width="${f1(R*0.2)}" height="${f1(Hs-1)}" fill="${shine}" opacity="0.9"/>`;
+  // paper label band with a colour stripe and the splat logo
+  const a1 = top + Hs*0.24, a2 = top + Hs*0.8;
+  g += `<rect x="${L}" y="${f1(a1)}" width="${2*R}" height="${f1(a2-a1)}" fill="#F4EFE6" stroke="${INK}" stroke-width="1.6"/><rect x="${L}" y="${f1(a2 - (a2-a1)*0.26)}" width="${2*R}" height="${f1((a2-a1)*0.26)}" fill="${label}" stroke="${INK}" stroke-width="1.2"/>`;
+  g += `<path transform="translate(${f1(-R*0.32)} ${f1(a1 + (a2-a1)*0.4)}) scale(0.16)" d="${SPLAT_D}" fill="${label}" stroke="${INK}" stroke-width="8"/>`;
+  g += `<path d="M${L} ${f1(top)} L${Rr} ${f1(top)} L${Rr} ${f1(B-rx)} Q${Rr} ${f1(B)} ${Rr-rx} ${f1(B)} L${L+rx} ${f1(B)} Q${L} ${f1(B)} ${L} ${f1(B-rx)} Z" fill="none" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
+  if (dmg >= 1) g += `<path d="M${f1(-R*0.78)} ${f1(B-6)} q5 -5 10 -1" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round"/><ellipse cx="${f1(R*0.66)}" cy="${f1(top+Hs*0.16)}" rx="4.5" ry="3.5" fill="${dark}" opacity="0.85"/>`;
+  if (dmg >= 2) g += `<path d="M${f1(R*0.05)} ${f1(B-1)} l4 -7 l4 4" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="${f1(-R*0.55)}" cy="${f1(top+Hs*0.5)}" rx="4" ry="4" fill="${dark}" opacity="0.8"/>`;
+  // top face and lid (knocked loose when badly damaged)
+  g += `<rect x="${L}" y="${f1(top-D)}" width="${2*R}" height="${D}" rx="5" fill="${hi}" stroke="${INK}" stroke-width="3"/>`;
   if (dmg >= 2){
-    const lx = x - R*0.25, ly = y - ry*1.1;
-    g += `<ellipse cx="${f1(x)}" cy="${f1(y+1)}" rx="${f1(R*0.82)}" ry="${f1(ry*0.8)}" fill="${paint}" stroke="${INK}" stroke-width="1.5"/>`;
-    g += `<g transform="rotate(-14 ${f1(lx)} ${f1(ly)})"><ellipse cx="${f1(lx)}" cy="${f1(ly+3)}" rx="${f1(R*0.86)}" ry="${f1(ry*0.86)}" fill="${dark}" stroke="${INK}" stroke-width="2.5"/><ellipse cx="${f1(lx)}" cy="${f1(ly)}" rx="${f1(R*0.86)}" ry="${f1(ry*0.86)}" fill="${base}" stroke="${INK}" stroke-width="2.5"/><ellipse cx="${f1(lx)}" cy="${f1(ly)}" rx="${f1(R*0.6)}" ry="${f1(ry*0.6)}" fill="none" stroke="${dark}" stroke-width="1.6"/></g>`;
+    g += `<rect x="${f1(-R*0.82)}" y="${f1(top-D*0.82)}" width="${f1(R*1.64)}" height="${f1(D*0.64)}" rx="3" fill="${paint}" stroke="${INK}" stroke-width="1.5"/>`;
+    g += `<g transform="rotate(-12 ${f1(-R*0.2)} ${f1(top-D*1.6)})"><rect x="${f1(-R*0.95)}" y="${f1(top-D*1.6-2)}" width="${f1(R*1.7)}" height="${f1(D*0.75)}" rx="4" fill="${dark}" stroke="${INK}" stroke-width="2.5"/><rect x="${f1(-R*0.95)}" y="${f1(top-D*1.6-5)}" width="${f1(R*1.7)}" height="${f1(D*0.75)}" rx="4" fill="${base}" stroke="${INK}" stroke-width="2.5"/></g>`;
   } else {
-    g += `<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="${f1(R*0.86)}" ry="${f1(ry*0.86)}" fill="${base}" stroke="${INK}" stroke-width="1.6"/><ellipse cx="${f1(x)}" cy="${f1(y)}" rx="${f1(R*0.66)}" ry="${f1(ry*0.66)}" fill="none" stroke="${dark}" stroke-width="2"/>`;
-    g += `<path d="M${f1(x-R*0.55)} ${f1(y-ry*0.35)} A${f1(R*0.66)} ${f1(ry*0.66)} 0 0 1 ${f1(x-R*0.05)} ${f1(y-ry*0.65)}" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" opacity="0.85"/>`;
+    g += `<rect x="${f1(-R*0.84)}" y="${f1(top-D*0.84)}" width="${f1(R*1.68)}" height="${f1(D*0.68)}" rx="4" fill="${base}" stroke="${INK}" stroke-width="1.6"/><rect x="${f1(-R*0.64)}" y="${f1(top-D*0.66)}" width="${f1(R*1.28)}" height="${f1(D*0.32)}" rx="3" fill="none" stroke="${dark}" stroke-width="2"/>`;
+    g += `<path d="M${f1(-R*0.6)} ${f1(top-D*0.72)} L${f1(-R*0.1)} ${f1(top-D*0.72)}" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" opacity="0.85"/>`;
   }
-  const dx = x + R*0.32, d = (a, b) => f1(dx + a*R) + ' ' + f1(y + b);
-  g += `<path d="M${d(-0.3, ry*0.86)} C${d(-0.28, ry*0.5)} ${d(0.3, ry*0.5)} ${d(0.32, ry*0.8)} L${d(0.3, Hs*0.55)} C${d(0.3, Hs*0.68)} ${d(0.14, Hs*0.68)} ${d(0.14, Hs*0.55)} L${d(0.12, Hs*0.32)} C${d(0.12, Hs*0.4)} ${d(-0.04, Hs*0.4)} ${d(-0.04, Hs*0.32)} L${d(-0.06, Hs*0.62)} C${d(-0.06, Hs*0.78)} ${d(-0.3, Hs*0.78)} ${d(-0.3, Hs*0.62)} Z" fill="${gold ? '#FFFFFF' : paint}" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/>`;
-  g += `<rect x="${f1(x-R-2.5)}" y="${f1(y+ry*0.2)}" width="5" height="${f1(Hs*0.22)}" rx="2" fill="${dark}" stroke="${INK}" stroke-width="1.5"/><rect x="${f1(x+R-2.5)}" y="${f1(y+ry*0.2)}" width="5" height="${f1(Hs*0.22)}" rx="2" fill="${dark}" stroke="${INK}" stroke-width="1.5"/>`;
-  g += `<path d="M${f1(x-R)} ${f1(y+ry*0.5)} C${f1(x-R*0.9)} ${f1(y-ry*2.4)} ${f1(x+R*0.9)} ${f1(y-ry*2.4)} ${f1(x+R)} ${f1(y+ry*0.5)}" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>`;
-  if (dmg >= 2) g += `<ellipse cx="${f1(x+R*0.95)}" cy="${f1(y+Hs+ry*0.9)}" rx="${f1(R*0.45)}" ry="${f1(ry*0.5)}" fill="${paint}" stroke="${INK}" stroke-width="1.5"/>`;
+  // paint over the top edge, dripping down the front
+  const dx = R*0.3, d = (a, b) => f1(dx + a*R) + ' ' + f1(top + b);
+  g += `<path d="M${d(-0.3, -D*0.3)} L${d(0.32, -D*0.3)} L${d(0.3, Hs*0.55)} C${d(0.3, Hs*0.68)} ${d(0.14, Hs*0.68)} ${d(0.14, Hs*0.55)} L${d(0.12, Hs*0.3)} C${d(0.12, Hs*0.38)} ${d(-0.04, Hs*0.38)} ${d(-0.04, Hs*0.3)} L${d(-0.06, Hs*0.6)} C${d(-0.06, Hs*0.76)} ${d(-0.3, Hs*0.76)} ${d(-0.3, Hs*0.6)} Z" fill="${gold ? '#FFFFFF' : paint}" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/>`;
+  // wire handle on side clips
+  g += `<rect x="${L-3}" y="${f1(top-4)}" width="5" height="9" rx="2" fill="${dark}" stroke="${INK}" stroke-width="1.5"/><rect x="${Rr-2}" y="${f1(top-4)}" width="5" height="9" rx="2" fill="${dark}" stroke="${INK}" stroke-width="1.5"/>`;
+  g += `<path d="M${L} ${f1(top)} C${f1(L+R*0.15)} ${f1(top-D*2.6)} ${f1(Rr-R*0.15)} ${f1(top-D*2.6)} ${Rr} ${f1(top)}" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>`;
+  if (dmg >= 2) g += `<ellipse cx="${f1(R*0.95)}" cy="${f1(B+4)}" rx="${f1(R*0.42)}" ry="5" fill="${paint}" stroke="${INK}" stroke-width="1.5"/>`;
   return {svg:g, vb:[-48, -48, 96, 96]};
 }
-// cracks drawn in the shape's own (unrotated) frame; stage 4 also knocks a chip off a corner
 function crackSet(rot, dmg, cracks, chip, chipFill){
   let g = '';
   for (let i=0;i<Math.min(dmg, cracks.length);i++) for (const d of cracks[i]) g += `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${i === dmg - 1 ? 2.8 : 2.4}" stroke-linecap="round" stroke-linejoin="round"/>`;

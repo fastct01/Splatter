@@ -28,7 +28,7 @@ export const OBJ = {can:{hp:18,mass:2,pts:2,r:22,splat:50}, barrel:{hp:110,mass:
 // Share of normal spawns: triangles are rare (about 1 in 12)
 export const TRIANGLE_CHANCE = 0.08, BARREL_CHANCE = 0.22;
 // damage a player takes when bumping into a floating object (at most once every BUMP_CD seconds per object)
-export const BUMP_DMG = {can:3, gold:3, triangle:12, barrel:22}, BUMP_CD = 0.6;
+export const BUMP_DMG = {can:3, gold:3, triangle:12, barrel:22}, BUMP_CD = 0.6, ROOKIE_BUMP = 3;   // Rookies take 3x bump damage
 export const OBJ_TARGET = 52;   // floating objects kept on the (bigger) map
 export function randomObjectType(){ const r = Math.random(); return r < TRIANGLE_CHANCE ? 'triangle' : r < TRIANGLE_CHANCE + BARREL_CHANCE ? 'barrel' : 'can'; }
 const BOT_NAMES = ['blue_wave','limelight','tangerine','sunny','purp','aqua','redline','honey','moss','minty','skyhigh','indigo','magenta','cocoa','splatcat','drip','smudge','inky','roller_rex','blotto','gloss','tint'];
@@ -628,7 +628,7 @@ export function createSim(opts){
         // bumping hurts: a little from paint tins, more from prisms, most from paint drums
         if (!t.bump) t.bump = {};
         if (BUMP_DMG[o.type] && (t.bump[o.id] === undefined || G.clock - t.bump[o.id] >= BUMP_CD)){
-          t.bump[o.id] = G.clock; damage(t, BUMP_DMG[o.type], null);
+          t.bump[o.id] = G.clock; damage(t, BUMP_DMG[o.type]*(t.cls === 'rookie' ? ROOKIE_BUMP : 1), null);
           if (t.human && t.protect <= 0) onEvent({k:'ring', x:t.x, y:t.y, r:o.r + t.r, o:0});
         }
       }
