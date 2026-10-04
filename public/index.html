@@ -128,7 +128,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
       <div class="tiles">
         <div class="tile"><span>You painted</span><b id="tArea"></b></div>
         <div class="tile"><span>Splats</span><b id="tSplats"></b></div>
-        <div class="tile"><span>XP earned</span><b id="tXp"></b></div>
+        <div class="tile"><span>Points earned</span><b id="tPts"></b></div>
       </div>
       <div class="row">
         <button id="again" class="btn primary">Play again</button>
@@ -420,8 +420,8 @@ function buildView(now){
       if (!s.meDisp || Math.hypot(px - s.meDisp.x, py - s.meDisp.y) > 220 || (mineL[9]&1)) s.meDisp = {x:px, y:py};
       else { const k = Math.min(1, frameDt*18); s.meDisp.x += (px - s.meDisp.x)*k; s.meDisp.y += (py - s.meDisp.y)*k; }
       Object.assign(me, {x:s.meDisp.x, y:s.meDisp.y, dead:!!(mineL[9]&1), protect:(mineL[9]&2)?1:0, flash:(mineL[9]&4)?1:0, hp:mineL[7], mhp:mineL[8], level:mineL[10],
-        cls:CLASS_LIST[mineL[4]] || 'splat', ink:Y.ink, icap:Y.icap, xp:Y.xp, xpn:Y.xpn, points:Y.pts, ptsXp:Y.pp || 0, stats:Y.st, specialCd:Y.scd, specialT:Y.sT, surface:Y.sf,
-        classPending:!!Y.cp, respawnT:Y.rt, cellsPainted:Y.cells, splats:Y.spl, xpTotal:Y.xpt, killedBy:Y.kb, vx:Y.vx, vy:Y.vy});
+        cls:CLASS_LIST[mineL[4]] || 'splat', ink:Y.ink, icap:Y.icap, points:Y.pts, stats:Y.st, specialCd:Y.scd, specialT:Y.sT, surface:Y.sf,
+        classPending:!!Y.cp, respawnT:Y.rt, cellsPainted:Y.cells, splats:Y.spl, pointsTotal:Y.ptt, killedBy:Y.kb, vx:Y.vx, vy:Y.vy});
       me.r = CLASSES[me.cls].r;
       if (!me.dead) me.aim = input.aim;
       v.me = me;
@@ -1237,19 +1237,19 @@ function drawHUD(){
   const hint = p.surface === 1 ? 'On your colour: +40% speed · regen on' : p.surface === -1 ? 'On enemy paint: slowed' : 'Neutral floor';
   text(merged && p.surface === 1 ? 'Your colour: fast + regen' : hint, ix + 14*u, iy + hy + 66*u, '400 ' + Math.round(13*u) + 'px ' + FB, p.surface === -1 ? ALERT : MUTED);
   const cost = S.upgradeCost(p), pts = Math.min(p.points || 0, cost), ready = (p.points || 0) >= cost;
-  const xpFrac = ready ? 1 : clamp(pts/cost, 0, 1);
+  const barFrac = ready ? 1 : clamp(pts/cost, 0, 1);
   const tail = p.cls === 'rookie' ? (p.classPending ? (merged ? ' · pick class' : ' · pick your class') : merged ? '' : ' · class at level ' + S.CLASS_AT) : '';
   const lvlLine = 'Level ' + (p.level || 0) + ' · ' + C.label + ' · ' + (ready ? 'upgrade ready' : pts + '/' + cost + (merged ? '' : ' points to level ' + ((p.level || 0) + 1))) + tail;
   if (merged){
     text(lvlLine, ix + 14*u, iy + hy + 84*u, '500 ' + Math.round(13*u) + 'px ' + FD);
     ctx.fillStyle = FLOOR; rr(ctx, ix + 14*u, iy + hy + 90*u, iw - 28*u, 6*u, 3*u); ctx.fill();
-    ctx.fillStyle = INK; rr(ctx, ix + 14*u, iy + hy + 90*u, (iw - 28*u)*xpFrac, 6*u, 3*u); ctx.fill();
+    ctx.fillStyle = INK; rr(ctx, ix + 14*u, iy + hy + 90*u, (iw - 28*u)*barFrac, 6*u, 3*u); ctx.fill();
   } else {
     const bw = Math.max(120, Math.min(420*u, VW - 2*(Math.max(iw, 150*u) + 56))), bx = cx - bw/2, by = B0 - 12*u;
     text(lvlLine, cx, by - 10*u, '500 ' + Math.round(16*u) + 'px ' + FD, INK, 'center');
     ctx.fillStyle = WHITE; rr(ctx, bx, by, bw, 12*u, 6*u); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
-    ctx.fillStyle = ready ? '#FF2D87' : INK; rr(ctx, bx, by, bw*xpFrac, 12*u, 6*u); ctx.fill();
-    for (let k=1;k<cost;k++){ const nx = bx + bw*k/cost; ctx.fillStyle = k/cost < xpFrac ? 'rgba(255,255,255,.6)' : 'rgba(35,42,53,.25)'; ctx.fillRect(nx - 1, by + 2*u, 2, 8*u); }   // one notch per point
+    ctx.fillStyle = ready ? '#FF2D87' : INK; rr(ctx, bx, by, bw*barFrac, 12*u, 6*u); ctx.fill();
+    for (let k=1;k<cost;k++){ const nx = bx + bw*k/cost; ctx.fillStyle = k/cost < barFrac ? 'rgba(255,255,255,.6)' : 'rgba(35,42,53,.25)'; ctx.fillRect(nx - 1, by + 2*u, 2, 8*u); }   // one notch per point
   }
   statsBox.style.bottom = ptsBox.style.bottom = (VH - iy + 10) + 'px';
   ptsBox.style.width = Math.round(iw) + 'px';
@@ -1359,7 +1359,7 @@ function showResults(){
   const m2 = (p.cellsPainted || 0)*(CELL/100)*(CELL/100);
   $('tArea').textContent = Math.round(m2).toLocaleString() + ' m²';
   $('tSplats').textContent = p.splats || 0;
-  $('tXp').textContent = '+' + Math.round(p.xpTotal || 0).toLocaleString();
+  $('tPts').textContent = '+' + Math.round(p.pointsTotal || 0).toLocaleString();
   const rc = $('resMap'), rg = rc.getContext('2d'), img = rg.createImageData(GW,GH), d = img.data;
   const col = []; for (let o=0;o<16;o++) col[o] = o === 0 ? [255,255,255] : rgbOf(ownerColor(V.mode, o));
   for (let k=0;k<GW*GH;k++){ const v = V.grid[k], c = v === 255 ? [138,151,166] : (col[v] || col[0]); d[k*4] = c[0]; d[k*4+1] = c[1]; d[k*4+2] = c[2]; d[k*4+3] = 255; }

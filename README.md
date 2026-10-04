@@ -4,7 +4,7 @@ A top-down paint shooter for up to 15 players. Shoot paint, cover the floor, and
 
 ## How it works
 
-- `shared/sim.js` is the whole game simulation: physics, paint grid, bullets, objects, XP, classes and bots. Players are 2.5D sprites with 8 facing directions, drawn in the client from SVG. The server runs it authoritatively; the browser runs it for practice mode.
+- `shared/sim.js` is the whole game simulation: physics, paint grid, bullets, objects, upgrade points, classes and bots. Players are 2.5D sprites with 8 facing directions, drawn in the client from SVG. The server runs it authoritatively; the browser runs it for practice mode.
 - `server/index.js` serves the website and runs game rooms over WebSockets at `/ws`. Each room holds up to 15 players, ticks physics at 60 Hz and sends snapshots at 20 Hz.
 - `public/index.html` is the client: menus, rendering, input, interpolation and touch controls.
 
@@ -44,7 +44,7 @@ Everyone starts each match as a **Rookie** with a basic paint pistol. Rookie upg
 
 Upgrades show on your player in every facing direction: level 3 adds a small change (bigger muzzle, drum magazine, armour vest, painted sneakers), level 6 a bigger one (twin barrel, spikes, helmet, second ink tank). When every upgrade is maxed the antenna light turns gold. The designs are on the Class upgrades board in the mockups.
 
-Your level is the number of upgrades you've bought, and the bar under it fills with the points towards the next one (for example 3/4). Every 10 XP gives 1 upgrade point. Class upgrades cost 10 points (one per 100 XP) and go up to 8 levels each. XP comes only from splatting players and breaking floating objects (paint tin 15, prism 45, drum 60, gold 200); painting the floor gives none. In bot tests most players unlock their class 40 s to 2 min into the 3-minute match.
+Your level is the number of upgrades you've bought, and the bar under it fills with the points towards the next one (for example 3/4). Upgrade points come only from splatting players (6 points, plus half the victim's level) and breaking floating objects (paint tin 2, prism 5, drum 6, gold 20); painting the floor gives none. Rookie upgrades cost 4 points, class upgrades 10, and each goes up to 8 levels. In bot tests most players unlock their class 40 s to 2 min into the 3-minute match.
 
 ## Controls
 

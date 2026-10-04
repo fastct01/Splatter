@@ -24,7 +24,7 @@ export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner','rookie']
 export const CLASS_KEYS = ['splat','roller','bomber','liner'];   // classes a Rookie can transform into
 export const CLASS_AT = 5;                                       // upgrades bought before the class menu opens
 export const OBJ_TYPES = ['can','barrel','gold','triangle'];
-export const OBJ = {can:{hp:35,mass:2,xp:15,r:22,splat:50}, barrel:{hp:110,mass:6,xp:60,r:30,splat:120}, gold:{hp:200,mass:4,xp:200,r:26,splat:160}, triangle:{hp:75,mass:3,xp:45,r:26,splat:75}};
+export const OBJ = {can:{hp:18,mass:2,pts:2,r:22,splat:50}, barrel:{hp:110,mass:6,pts:6,r:30,splat:120}, gold:{hp:200,mass:4,pts:20,r:26,splat:160}, triangle:{hp:75,mass:3,pts:5,r:26,splat:75}};
 // Share of normal spawns: triangles are rare (about 1 in 12)
 export const TRIANGLE_CHANCE = 0.08, BARREL_CHANCE = 0.22;
 // damage a player takes when bumping into a floating object (at most once every BUMP_CD seconds per object)
@@ -33,8 +33,9 @@ export const OBJ_TARGET = 52;   // floating objects kept on the (bigger) map
 export function randomObjectType(){ const r = Math.random(); return r < TRIANGLE_CHANCE ? 'triangle' : r < TRIANGLE_CHANCE + BARREL_CHANCE ? 'barrel' : 'can'; }
 const BOT_NAMES = ['blue_wave','limelight','tangerine','sunny','purp','aqua','redline','honey','moss','minty','skyhigh','indigo','magenta','cocoa','splatcat','drip','smudge','inky','roller_rex','blotto','gloss','tint'];
 
-export const xpNeed = n => Math.round(19*Math.pow(n,1.4));
-export const XP_PER_POINT = 10, UPGRADE_COST = 10, ROOKIE_COST = 4;
+// upgrade points come straight from splats and broken objects; an upgrade costs this many points
+export const UPGRADE_COST = 10, ROOKIE_COST = 4;
+export const SPLAT_POINTS = v => 6 + Math.floor(v.level/2);   // points for splatting a player
 // Rookie upgrades are cheaper so the class menu arrives within the first minute or so
 export const upgradeCost = t => t.cls === 'rookie' ? ROOKIE_COST : UPGRADE_COST;
 // points a player has put into one of their class's upgrades
@@ -139,7 +140,7 @@ export function createSim(opts){
 
   function makeTank(o){
     const t = Object.assign({id:nextId++, name:'', human:false, slot:1, team:0, x:0, y:0, vx:0, vy:0, aim:0, aimDist:400, cls:'rookie', r:28,
-      level:0, xp:0, xpTotal:0, points:0, ptsXp:0, stats:[0,0,0,0,0,0], hp:100, ink:100, reload:0, specialCd:0, specialT:0, cluster:false,
+      level:0, points:0, pointsTotal:0, stats:[0,0,0,0,0,0], hp:100, ink:100, reload:0, specialCd:0, specialT:0, cluster:false,
       surface:0, sm:1, am:1, lastHit:-99, dead:false, respawnT:0, protect:2, flash:0, cellsPainted:0, paintAcc:0, splats:0, deaths:0,
       trailAcc:0, spinA:0, spinReload:0, moving:false, damagers:{}, killedBy:'', classPending:false, charge:false, spinning:false,
       ai:{think:0, wpT:0, strafe:Math.random()<0.5?1:-1, err:0, strafeT:0},
@@ -147,7 +148,7 @@ export function createSim(opts){
     refresh(t);
     return t;
   }
-  function refresh(t){ t.mhp = maxHpOf(t); t.icap = inkCapOf(t); t.xpn = xpNeed(t.level); t.charge = t.cls === 'roller' && t.specialT > 0; t.spinning = t.cls === 'sprayer' && t.specialT > 0; }
+  function refresh(t){ t.mhp = maxHpOf(t); t.icap = inkCapOf(t); t.charge = t.cls === 'roller' && t.specialT > 0; t.spinning = t.cls === 'sprayer' && t.specialT > 0; }
 
   function usedNames(){ return new Set(G.tanks.map(t => t.name)); }
   function botName(){ const used = usedNames(); const free = BOT_NAMES.filter(n => !used.has(n)); return free.length ? free[Math.floor(Math.random()*free.length)] : 'bot' + nextId; }
@@ -273,17 +274,17 @@ export function createSim(opts){
     onStamp(x, y, r, owner, rot);
     if (credit && changed){
       credit.cellsPainted += changed; credit.paintAcc += changed;
-      // painting no longer gives XP: points come only from splatting players and breaking objects
+      // painting gives no points: they come only from splatting players and breaking objects
     }
     return changed;
   }
 
-  function addXP(t, a){
-    if (G.over) return;
-    t.xp += a; t.xpTotal += a; t.ptsXp += a;
-    while (t.ptsXp >= XP_PER_POINT){ t.ptsXp -= XP_PER_POINT; t.points++; }
+  function addPoints(t, a){
+    if (G.over || !a) return;
+    t.points += a; t.pointsTotal += a;
     // the level is the number of upgrades bought; progress to the next level is the points towards the next upgrade
   }
+
   // Rookie -> class. Upgrades the new class also has carry over; the rest are refunded as points.
   function transform(t, k){
     const oldUps = CLASSES[t.cls].ups, newUps = CLASSES[k].ups;
@@ -327,12 +328,12 @@ export function createSim(opts){
     stamp(t.x, t.y, 140, po, killer);
     onEvent({k:'ring', x:t.x, y:t.y, r:150, o:po});
     if (killer){
-      killer.splats++; addXP(killer, 60 + 6*t.level);
+      killer.splats++; addPoints(killer, SPLAT_POINTS(t));
       t.killedBy = killer.name;
     } else t.killedBy = '';
     onEvent({k:'kill', a: killer ? killer.id : 0, b:t.id, an: killer ? killer.name : '', bn:t.name});
     if (t.human) onEvent({k:'shake', id:t.id, s:0.25});
-    t.xp = Math.floor(t.xp*0.8); t.damagers = {};
+    t.damagers = {};
   }
 
   function fire(t){
@@ -483,7 +484,7 @@ export function createSim(opts){
     o.dead = true;
     const d = OBJ[o.type];
     const owner = src ? paintOwner(src) : 0;
-    if (src){ addXP(src, d.xp); stamp(o.x, o.y, d.splat, owner, src); }
+    if (src){ addPoints(src, d.pts); stamp(o.x, o.y, d.splat, owner, src); }
     onEvent({k:'ring', x:o.x, y:o.y, r:d.splat, o:owner});
     if (o.type === 'barrel'){
       for (const t of G.tanks){ if (t.dead) continue; const dd = Math.hypot(t.x-o.x, t.y-o.y); if (dd < 100 + t.r){ const k = Math.max(0, 1 - dd/(100+t.r)); damage(t, 15, t === src ? null : src); const nx = (t.x-o.x)/(dd||1), ny = (t.y-o.y)/(dd||1); t.vx += nx*300*k/CLASSES[t.cls].mass; t.vy += ny*300*k/CLASSES[t.cls].mass; } }
