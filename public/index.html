@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#E4E2DD">
-<title>Color Duel</title>
+<title>Splash Arena</title>
 <meta name="description" content="Paint the floor, own the arena. A top-down paint shooter for up to 15 players.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -96,11 +96,11 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 </head>
 <body>
 <div id="safe"></div>
-<canvas id="game" aria-label="Color Duel arena"></canvas>
+<canvas id="game" aria-label="Splash Arena game"></canvas>
 
 <div id="title" class="screen">
   <div class="card title-card">
-    <h1 class="logo">COLOR <span>DUEL</span></h1>
+    <h1 class="logo">SPLASH <span>ARENA</span></h1>
     <p class="tag">Paint the floor. Own the arena.</p>
     <label for="nick">Nickname</label>
     <input id="nick" type="text" maxlength="16" placeholder="Enter a name" autocomplete="off">
@@ -908,7 +908,7 @@ function drawHUD(){
   const online = session.kind === 'net';
   let feedY = T0;
   if (!narrow){
-    text('COLOR DUEL', L, T0 + 26*u, '800 ' + Math.round(26*u) + 'px ' + FD);
+    text('SPLASH ARENA', L, T0 + 26*u, '800 ' + Math.round(26*u) + 'px ' + FD);
     const humans = V.tanks.filter(t => t.human).length;
     const sub = online ? humans + (humans === 1 ? ' player' : ' players') : 'practice vs bots';
     text(V.mode === 'teams' ? 'Teams · up to 5 v 5 v 5 · ' + sub : sub[0].toUpperCase() + sub.slice(1), L, T0 + 46*u, '400 ' + Math.round(14*u) + 'px ' + FB, MUTED);

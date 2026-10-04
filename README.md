@@ -1,4 +1,4 @@
-# Color Duel
+# Splash Arena
 
 A top-down paint shooter for up to 15 players. Shoot paint, cover the floor, and own the most of it when the 3-minute timer runs out. Play free-for-all with 15 personal colours, or Blue vs Orange vs Yellow in 5 v 5 v 5 teams. Online matches are real players only; a match starts once 2 players are in the room. Practice mode lets you play offline against bots.
 
