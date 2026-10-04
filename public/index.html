@@ -295,7 +295,7 @@ function processNetQueue(s, rt){
 /* ---------- sound ---------- */
 // name: [volume, number of takes]. Shots rotate between takes so rapid fire never repeats the exact same clip
 const SFX = {'shot-splat':[0.36,3], 'shot-roller':[0.32,2], 'shot-bomber':[0.38,2], 'shot-liner':[0.3,2], 'shot-sprayer':[0.26,2],
-  splash:[0.3,1], hit:[0.4,2], splatted:[0.6,1], kill:[0.45,1], levelup:[0.4,1], end:[0.35,1]};
+  splash:[0.3,1], hit:[0.4,2], splatted:[0.6,1], kill:[0.45,1], levelup:[0.42,1], upgrade:[0.45,2], end:[0.35,1]};
 const audio = {ctx:null, out:null, bufs:{}, last:{}, turn:{}, voices:0, otherShotAt:0, muted:false};
 try { audio.muted = localStorage.getItem('splatter-muted') === '1'; } catch(e) {}
 function unlockAudio(){
@@ -1053,8 +1053,10 @@ function syncPoints(p, statsShown){
   if (ptsBar.children.length !== cost){ ptsBar.style.gridTemplateColumns = 'repeat(' + cost + ',minmax(0,1fr))'; ptsBar.innerHTML = '<i></i>'.repeat(cost); }
   [...ptsBar.children].forEach((pip, k) => pip.classList.toggle('on', k < have));
 }
+let upSeen = {cls:null, n:0};
 function syncStats(){
   const p = session && session.kind !== 'demo' && $('results').hidden && $('pause').hidden && V ? V.me : null;
+  if (p && p.stats){ const n = p.stats.reduce((a,b) => a+b, 0); if (p.cls === upSeen.cls && n > upSeen.n) sfx('upgrade'); upSeen = {cls:p.cls, n}; }
   const show = !!(p && p.stats && !p.dead && !p.classPending && p.points >= S.upgradeCost(p) && p.stats.some(v => v < 8));
   if (statsBox.hidden === show) statsBox.hidden = !show;
   syncPoints(p, show);
