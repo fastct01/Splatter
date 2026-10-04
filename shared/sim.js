@@ -7,24 +7,24 @@ export const PNAME = ['','Pink','Red','Orange','Amber','Yellow','Lime','Green','
 export const TCOL = [null,'#2D8CFF','#FF8A1F','#FFD21F'];
 export const TNAME = ['','Blue','Orange','Yellow'];
 export const CLASSES = {
-  rookie:    {label:'Rookie', r:28, mass:1.0, hp:100, rate:2.5, speed:490, range:480, dmg:10, ink:3, splat:40, br:7, desc:'Starter with a basic paint pistol', tag:'', spec:'', specLong:'',
+  rookie:    {label:'Rookie', r:28, mass:1.0, hp:100, rate:3.4, speed:490, range:480, dmg:10, ink:3, splat:40, br:7, desc:'Starter with a basic paint pistol', tag:'', spec:'', specLong:'',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, rate:3, speed:525, range:520, dmg:12, ink:3, splat:42, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
+  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, rate:4, speed:525, range:520, dmg:12, ink:3, splat:42, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  roller:    {label:'Roller', r:34, mass:1.4, hp:120, rate:2, speed:525, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by walking', tag:'Paints as it walks', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
+  roller:    {label:'Roller', r:34, mass:1.4, hp:120, rate:2.7, speed:525, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by walking', tag:'Paints as it walks', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
                ups:[['trail','Roller width'],['ram','Ram damage'],['scd','Charge reload'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  bomber:    {label:'Bomber', r:32, mass:1.2, hp:100, rate:0.8, speed:675, range:470, dmg:35, ink:12, splat:110, br:12, bomb:true, desc:'Lobs ink bombs that burst into big splashes', tag:'Big splash bombs', spec:'Cluster', specLong:'Special: next bomb splits into 4',
+  bomber:    {label:'Bomber', r:32, mass:1.2, hp:100, rate:1.1, speed:675, range:470, dmg:35, ink:12, splat:110, br:12, bomb:true, desc:'Lobs ink bombs that burst into big splashes', tag:'Big splash bombs', spec:'Cluster', specLong:'Special: next bomb splits into 4',
                ups:[['blast','Blast radius'],['dmg','Bomb damage'],['rate','Reload'],['range','Throw range'],['ink','Ink tank'],['hp','Health']]},
-  sprayer:   {label:'Sprayer', r:30, mass:1.0, hp:100, rate:2, speed:450, range:340, dmg:7, ink:8, splat:30, br:7, spread:5, desc:'Spray gun: a 5-shot spread in front', tag:'5-shot spread', spec:'Spin', specLong:'Special: 3 s of spinning spray',
+  sprayer:   {label:'Sprayer', r:30, mass:1.0, hp:100, rate:2.7, speed:450, range:340, dmg:7, ink:8, splat:30, br:7, spread:5, desc:'Spray gun: a 5-shot spread in front', tag:'5-shot spread', spec:'Spin', specLong:'Special: 3 s of spinning spray',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  liner:     {label:'Liner', r:28, mass:0.9, hp:90, rate:1, speed:1125, range:1100, dmg:30, ink:10, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', tag:'Long-range lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
+  liner:     {label:'Liner', r:28, mass:0.9, hp:90, rate:1.35, speed:1125, range:1100, dmg:30, ink:10, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', tag:'Long-range lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
                ups:[['dmg','Shot damage'],['range','Range'],['line','Line width'],['rate','Reload'],['ink','Ink tank'],['speed','Move speed']]}
 };
 export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner','rookie'];   // network order: only append
 export const CLASS_KEYS = ['splat','roller','bomber','liner'];   // classes a Rookie can transform into
 export const CLASS_AT = 5;                                       // upgrades bought before the class menu opens
 export const OBJ_TYPES = ['can','barrel','gold','triangle'];
-export const OBJ = {can:{hp:35,mass:2,xp:10,r:22,splat:50}, barrel:{hp:110,mass:6,xp:50,r:30,splat:120}, gold:{hp:200,mass:4,xp:200,r:26,splat:160}, triangle:{hp:75,mass:3,xp:35,r:26,splat:75}};
+export const OBJ = {can:{hp:35,mass:2,xp:15,r:22,splat:50}, barrel:{hp:110,mass:6,xp:60,r:30,splat:120}, gold:{hp:200,mass:4,xp:200,r:26,splat:160}, triangle:{hp:75,mass:3,xp:45,r:26,splat:75}};
 // Share of normal spawns: triangles are rare (about 1 in 12)
 export const TRIANGLE_CHANCE = 0.08, BARREL_CHANCE = 0.22;
 export const OBJ_TARGET = 52;   // floating objects kept on the (bigger) map
@@ -32,7 +32,7 @@ export function randomObjectType(){ const r = Math.random(); return r < TRIANGLE
 const BOT_NAMES = ['blue_wave','limelight','tangerine','sunny','purp','aqua','redline','honey','moss','minty','skyhigh','indigo','magenta','cocoa','splatcat','drip','smudge','inky','roller_rex','blotto','gloss','tint'];
 
 export const xpNeed = n => Math.round(19*Math.pow(n,1.4));
-export const XP_PER_POINT = 50, UPGRADE_COST = 10, ROOKIE_COST = 4;
+export const XP_PER_POINT = 10, UPGRADE_COST = 10, ROOKIE_COST = 4;
 // Rookie upgrades are cheaper so the class menu arrives within the first minute or so
 export const upgradeCost = t => t.cls === 'rookie' ? ROOKIE_COST : UPGRADE_COST;
 // points a player has put into one of their class's upgrades
@@ -269,7 +269,7 @@ export function createSim(opts){
     onStamp(x, y, r, owner, rot);
     if (credit && changed){
       credit.cellsPainted += changed; credit.paintAcc += changed;
-      const gain = Math.floor(credit.paintAcc/4); if (gain){ credit.paintAcc -= gain*4; addXP(credit, gain); }
+      // painting no longer gives XP: points come only from splatting players and breaking objects
     }
     return changed;
   }
@@ -324,7 +324,6 @@ export function createSim(opts){
     onEvent({k:'ring', x:t.x, y:t.y, r:150, o:po});
     if (killer){
       killer.splats++; addXP(killer, 60 + 6*t.level);
-      for (const id in t.damagers){ const e = getTank(+id); if (e && e !== killer && G.clock - t.damagers[id] < 4) addXP(e, 20); }
       t.killedBy = killer.name;
     } else t.killedBy = '';
     onEvent({k:'kill', a: killer ? killer.id : 0, b:t.id, an: killer ? killer.name : '', bn:t.name});
@@ -505,7 +504,7 @@ export function createSim(opts){
           const sp = Math.hypot(b.vx,b.vy) || 1, m = CLASSES[t.cls].mass;
           if (t.protect <= 0){ t.vx += b.vx/sp*40/m; t.vy += b.vy/sp*40/m; }
           stamp(t.x, t.y, 18, b.po, b.owner);
-          if (t.protect <= 0){ addXP(b.owner, 2); if (b.owner.human) onEvent({k:'hit', by:b.owner.id, x:b.x, y:b.y}); }
+          if (t.protect <= 0){ if (b.owner.human) onEvent({k:'hit', by:b.owner.id, x:b.x, y:b.y}); }
           damage(t, b.dmg, b.owner);
           break;
         }
