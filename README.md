@@ -42,6 +42,8 @@ Everyone starts each match as a **Rookie** with a basic paint pistol. Rookie upg
 | Bomber | Lobs bombs that burst into big splashes | Next bomb splits into 4 | Blast radius, bomb damage, reload, throw range, ink tank, health |
 | Liner | Long-range sniper that paints thin lines | Zoom out for 4 s | Shot damage, range, line width, reload, ink tank, move speed |
 
+Upgrades show on your player in every facing direction: level 3 adds a small change (bigger muzzle, drum magazine, armour vest, painted sneakers), level 6 a bigger one (twin barrel, spikes, helmet, second ink tank). When every upgrade is maxed the antenna light turns gold. The designs are on the Class upgrades board in the mockups.
+
 Every 50 XP gives 1 upgrade point. Class upgrades cost 10 points (one per 500 XP) and go up to 8 levels each. XP comes from painting, breaking objects and splatting players. In bot tests most players unlock their class 40 s to 2 min into the 3-minute match.
 
 ## Controls

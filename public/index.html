@@ -388,7 +388,7 @@ function buildView(now){
     const cls = CLASS_LIST[a[4]] || 'splat', f = a[9], ro = s.roster.get(a[0]) || {};
     v.tanks.push({id:a[0], x: jump ? a[1] : b[1] + (a[1]-b[1])*u, y: jump ? a[2] : b[2] + (a[2]-b[2])*u, aim: lerpAngle(b[3]/100, a[3]/100, u),
       cls, r:CLASSES[cls].r, slot:a[5], team:a[6], hp:a[7], mhp:a[8], dead:!!(f&1), protect:(f&2)?1:0, flash:(f&4)?1:0, charge:!!(f&8), spinning:!!(f&16), human:!!(f&32), moving:!!(f&64),
-      level:a[10], spinA:a[11]/100, name: ro.name || ''});
+      level:a[10], spinA:a[11]/100, look:a[12] || 0, name: ro.name || ''});
   }
   // own tank: latest server state, extrapolated a little and smoothed
   const Y = s.Y, mineL = last.tanks.get(s.myId);
@@ -464,82 +464,248 @@ const DIRS = ['E','SE','S','SW','W','NW','N','NE'];
 const MIRROR = {SW:'SE', W:'E', NW:'NE'};
 const spriteCache = new Map();
 function darkRGB(h){ const n = parseInt(h.slice(1),16), f = 0.78; return 'rgb(' + Math.round((n>>16&255)*f) + ',' + Math.round((n>>8&255)*f) + ',' + Math.round((n&255)*f) + ')'; }
-function spriteSVG(base, col, gun, lvl, flash, fr){
-  fr = fr || 0;
-  const K = '#232A35', G = '#3A4250', W = '#FFFFFF';
+// Upgrade looks: each of the class's 6 upgrades shows a small change at level 3 and a bigger one at level 6.
+// A look is 6 base-3 digits (one tier per upgrade slot) plus 729 when every upgrade is maxed (gold antenna light).
+const NO_LOOK = {ink:0, hp:0, speed:0, max:false, g:{}};
+const lookCache = new Map();
+function decodeLook(cls, code){
+  code = code | 0; if (!code) return NO_LOOK;
+  const key = cls + '|' + code; let L = lookCache.get(key); if (L) return L;
+  const ups = (CLASSES[cls] || CLASSES.rookie).ups;
+  L = {ink:0, hp:0, speed:0, max: code >= 729, g:{}};
+  let c = code % 729;
+  for (let i=5;i>=0;i--){ const tier = c % 3; c = (c - tier)/3; const k = ups[i][0]; if (k === 'ink' || k === 'hp' || k === 'speed') L[k] = tier; else L.g[k] = tier; }
+  lookCache.set(key, L); return L;
+}
+function spriteSVG(base, col, gun, lvl, flash, fr, L){
+  fr = fr || 0; L = L || NO_LOOK;
+  const g = L.g, K = '#232A35', G = '#3A4250', W = '#FFFFFF', STEEL = '#8A97A6', PLATE = '#C9D1DA', DRUM = '#5C6676';
   const C = flash ? W : col, D = flash ? '#E4E2DD' : darkRGB(col);
+  const t = k => g[k] || 0;
   const len = {pistol:16, blaster:24, launcher:28, sprayer:22, sniper:40}[gun] || 24;
   const th = {pistol:7, blaster:9, launcher:14, sprayer:10, sniper:6}[gun] || 9;
   const frac = [0, 0.34, 0.67, 1][lvl];
   const packStroke = lvl === 0 ? '#B8125C' : K;
   const st = w => 'stroke="' + K + '" stroke-width="' + w + '"';
   const inkFill = (x, w, bottom, maxh) => frac > 0 ? `<rect x="${x}" y="${(bottom - maxh*frac).toFixed(1)}" width="${w}" height="${(maxh*frac).toFixed(1)}" rx="2" fill="${col}"/>` : '';
-  // walk frames: 0 standing, 1 and 2 alternate steps
+  const tank = (x, y, w, h, rx, fx, fw, fb, fh) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${W}" stroke="${packStroke}" stroke-width="3"/>` + inkFill(fx, fw, fb, fh);
+  const cap = (x, y, w) => `<rect x="${x}" y="${y}" width="${w}" height="5" rx="1.5" fill="${K}"/>`;
+  // ---- legs and shoes (move speed: painted sneakers, then a heel wing)
   const leg = (x, h) => `<rect x="${x}" y="-13" width="8" height="${h}" rx="3" fill="${G}"/>`;
-  const shoe = (cx, cy) => `<ellipse cx="${cx}" cy="${cy}" rx="6" ry="3.5" fill="${K}"/>`;
-  const legsSide = () => fr === 1 ? leg(-11, 12) + leg(5, 12) + shoe(-6, -1) + shoe(12, -1)
-                       : fr === 2 ? leg(-4, 9) + leg(-1, 12) + shoe(1, -4) + shoe(4, -1)
-                       : leg(-6, 12) + leg(1, 12) + shoe(0, -1) + shoe(8, -1);
-  const legsFront = () => { const l1 = fr === 1 ? 4 : 0, l2 = fr === 2 ? 4 : 0; return leg(-10, 12 - l1) + leg(2, 12 - l2) + shoe(-6, -1 - l1) + shoe(6, -1 - l2); };
-  const legs34 = () => fr === 1 ? leg(-10, 12) + leg(4, 8) + shoe(-5, -1) + shoe(10, -5)
-                     : fr === 2 ? leg(-6, 8) + leg(1, 12) + shoe(-1, -5) + shoe(7, -1)
-                     : leg(-8, 12) + leg(2, 12) + shoe(-3, -1) + shoe(8, -1);
+  const shoe = (cx, cy) => L.speed ? `<ellipse cx="${cx}" cy="${cy-0.5}" rx="6.5" ry="4" fill="${C}" ${st(2)}/><line x1="${cx-3}" y1="${cy-1.6}" x2="${cx+2.5}" y2="${cy-1.6}" stroke="${W}" stroke-width="1.6" stroke-linecap="round"/>` : `<ellipse cx="${cx}" cy="${cy}" rx="6" ry="3.5" fill="${K}"/>`;
+  const wing = (cx, cy, flip) => L.speed === 2 ? `<path transform="translate(${cx} ${cy+1})${flip ? ' scale(-1 1)' : ''}" d="M-5 -4 C-9 -13 -17 -12 -16 -6 C-14 -7 -12 -6 -11 -4 C-13 -4 -14 -2 -12 -1 Z" fill="${W}" ${st(1.6)} stroke-linejoin="round"/>` : '';
+  const speedLines = () => L.speed === 2 ? `<g stroke="${K}" stroke-width="2.5" stroke-linecap="round" opacity="0.35"><line x1="-45" y1="-42" x2="-37" y2="-42"/><line x1="-47" y1="-31" x2="-39" y2="-31"/><line x1="-44" y1="-20" x2="-37" y2="-20"/></g>` : '';
+  const legsSide = () => { const p = fr === 1 ? [[-11,12,-6,-1],[5,12,12,-1]] : fr === 2 ? [[-4,9,1,-4],[-1,12,4,-1]] : [[-6,12,0,-1],[1,12,8,-1]];
+    return leg(p[0][0], p[0][1]) + leg(p[1][0], p[1][1]) + shoe(p[0][2], p[0][3]) + shoe(p[1][2], p[1][3]) + wing(p[0][2], p[0][3]); };
+  const legsFront = () => { const l1 = fr === 1 ? 4 : 0, l2 = fr === 2 ? 4 : 0; return leg(-10, 12 - l1) + leg(2, 12 - l2) + shoe(-6, -1 - l1) + shoe(6, -1 - l2) + wing(-7, -1 - l1) + wing(7, -1 - l2, true); };
+  const legs34 = () => { const p = fr === 1 ? [[-10,12,-5,-1],[4,8,10,-5]] : fr === 2 ? [[-6,8,-1,-5],[1,12,7,-1]] : [[-8,12,-3,-1],[2,12,8,-1]];
+    return leg(p[0][0], p[0][1]) + leg(p[1][0], p[1][1]) + shoe(p[0][2], p[0][3]) + shoe(p[1][2], p[1][3]) + wing(p[0][2], p[0][3]); };
+  // ---- body, health armour, head, helmet
   const body = `<rect x="-14" y="-37" width="28" height="27" rx="10" fill="${C}"/><rect x="-14" y="-18" width="28" height="4" fill="${D}"/><rect x="-14" y="-37" width="28" height="27" rx="10" fill="none" ${st(3)}/>`;
-  const head = cx => `<circle cx="${cx}" cy="-52" r="17" fill="${C}"/><ellipse cx="${cx-6}" cy="-60" rx="6" ry="4" fill="${W}" opacity="0.35"/><circle cx="${cx}" cy="-52" r="17" fill="none" ${st(3)}/>`;
-  const antenna = (x1, x2) => `<line x1="${x1}" y1="-68" x2="${x2}" y2="-76" stroke="${K}" stroke-width="2.5" stroke-linecap="round"/><circle cx="${x2}" cy="-77" r="3.5" fill="${col}" ${st(2)}/>`;
+  const vest = (r1, r2) => L.hp ? `<path d="M-14 -27 L-14 -28 C-14 -34 -10 -37 -4 -37 L4 -37 C10 -37 14 -34 14 -28 L14 -20 L-14 -20 Z" fill="${PLATE}" ${st(2.5)} stroke-linejoin="round"/><line x1="-14" y1="-24" x2="14" y2="-24" stroke="${STEEL}" stroke-width="2"/>` + (r1 !== undefined ? `<circle cx="${r1}" cy="-31" r="1.4" fill="${K}"/><circle cx="${r2}" cy="-31" r="1.4" fill="${K}"/>` : '') : '';
+  const head = cx => `<circle cx="${cx}" cy="-52" r="17" fill="${C}"/><ellipse cx="${cx-6}" cy="-60" rx="6" ry="4" fill="${W}" opacity="0.35"/><circle cx="${cx}" cy="-52" r="17" fill="none" ${st(3)}/>`
+    + (L.hp === 2 ? `<path d="M${cx-17.6} -57 C${cx-16} -77 ${cx+16} -77 ${cx+17.6} -57 Z" fill="${STEEL}" ${st(3)} stroke-linejoin="round"/><path d="M${cx-11} -66 C${cx-7} -70.5 ${cx+1} -71.5 ${cx+6} -69.5" fill="none" stroke="${W}" stroke-width="2" stroke-linecap="round" opacity="0.55"/><rect x="${cx-19}" y="-59" width="38" height="4" rx="2" fill="${DRUM}" ${st(2)}/>` : '');
+  const antenna = (x1, x2) => `<line x1="${x1}" y1="-68" x2="${x2}" y2="-76" stroke="${K}" stroke-width="2.5" stroke-linecap="round"/><circle cx="${x2}" cy="-77" r="3.5" fill="${L.max ? '#FFC83D' : col}" ${st(2)}/>`
+    + (L.max ? `<g stroke="#E0A100" stroke-width="2" stroke-linecap="round"><line x1="${x2}" y1="-84" x2="${x2}" y2="-88"/><line x1="${x2-7}" y1="-80" x2="${x2-10.5}" y2="-82"/><line x1="${x2+7}" y1="-80" x2="${x2+10.5}" y2="-82"/></g>` : '');
   const emblem = x => `<path d="M${x} -33 C${x+3} -29 ${x+4} -27 ${x} -24 C${x-4} -27 ${x-3} -29 ${x} -33 Z" fill="${W}"/>`;
   const hand = (x, y) => `<circle cx="${x}" cy="${y}" r="4.5" fill="${K}"/>`;
   const glint = x => `<rect x="${x}" y="-55" width="3" height="5" rx="1.5" fill="${W}" opacity="0.8"/>`;
-  const roll = (tx, ty, ang) => `<g transform="translate(${tx} ${ty}) rotate(${ang})"><rect x="-5" y="-17" width="10" height="34" rx="5" fill="${col}" ${st(3)}/></g>`;
-  const gunAngled = (tx, ty, ang) => `<g transform="translate(${tx} ${ty}) rotate(${ang})"><rect x="0" y="${-th/2}" width="${len}" height="${th}" rx="3" fill="${G}" ${st(2.5)}/><rect x="${len-4}" y="${-th/2-1.5}" width="7" height="${th+3}" rx="2.5" fill="${col}" ${st(2.5)}/></g>`;
+  // ---- backpack extras: Roller exhaust pipes, Bomber spare bombs, Liner spare rounds
+  const pipes = (x1, x2, top) => gun === 'roller' && t('scd') === 2 ? `<rect x="${x1}" y="${top-12}" width="6" height="16" rx="2.5" fill="${DRUM}" ${st(2.2)}/><rect x="${x2}" y="${top-9}" width="6" height="13" rx="2.5" fill="${DRUM}" ${st(2.2)}/><circle cx="${x1+3}" cy="${top-17}" r="4.4" fill="${W}" ${st(1.5)}/><circle cx="${x1-3}" cy="${top-24}" r="3.1" fill="${W}" ${st(1.5)}/>` : '';
+  const spares = (pts) => {
+    if (gun === 'launcher' && t('rate')) return pts.map(([x,y]) => `<circle cx="${x}" cy="${y}" r="3.4" fill="${K}"/><circle cx="${x+1.2}" cy="${y-1.2}" r="1.3" fill="${col}"/>`).join('');
+    if (gun === 'sniper' && t('rate') === 2) return pts.map(([x,y]) => `<rect x="${x-2}" y="${y-3}" width="4" height="6" rx="1" fill="${col}" ${st(1.5)}/>`).join('');
+    return '';
+  };
+  // ---- roller drum, seen end-on (side view) or along its length (other views)
+  const rW = [0, 1, 2][t('trail')];
+  const bolt = (cx, cy, s, rot) => gun === 'roller' && t('scd') ? `<path transform="translate(${cx} ${cy}) rotate(${rot || 0}) scale(${s})" d="M1.6 -6.8 L-3.8 0.9 L-0.4 0.9 L-1.6 6.8 L4 -1.3 L0.6 -1.3 Z" fill="${W}" ${st(1.4)} stroke-linejoin="round"/>` : '';
+  const rollBar = (cx, cy, w, h) => {   // roller drum seen lengthways, centred at (cx, cy), horizontal
+    let s = '';
+    if (t('ram') === 2) for (let i=0;i<5;i++){ const x = cx - w/2 + w*(i+0.5)/5; s += `<path d="M${x-2.5} ${cy-h/2+1} L${x} ${cy-h/2-4.5} L${x+2.5} ${cy-h/2+1} Z M${x-2.5} ${cy+h/2-1} L${x} ${cy+h/2+4.5} L${x+2.5} ${cy+h/2-1} Z" fill="${STEEL}" ${st(1.5)} stroke-linejoin="round"/>`; }
+    s += `<rect x="${cx-w/2}" y="${cy-h/2}" width="${w}" height="${h}" rx="${h/2}" fill="${col}" ${st(3)}/>`;
+    if (rW === 2) s += `<line x1="${cx-w/2+5}" y1="${cy}" x2="${cx+w/2-5}" y2="${cy}" stroke="${W}" stroke-width="2" opacity="0.7"/>`;
+    if (t('ram') >= 1) for (let i=0;i<6;i++){ const x = cx - w/2 + w*(i+0.5)/6; s += `<circle cx="${x}" cy="${cy-h/2}" r="1.7" fill="${K}"/><circle cx="${x}" cy="${cy+h/2}" r="1.7" fill="${K}"/>`; }
+    return s + bolt(cx, cy, 0.55);
+  };
+  const roll = (tx, ty, ang) => { const h = 34 + rW*8; return `<g transform="translate(${tx} ${ty}) rotate(${ang + 90})">${rollBar(0, 0, h, 10 + rW*2)}</g>`; };
+  // ---- guns seen at an angle (SE, NE): barrel along +x, upgrades drawn in the same frame
+  const gunAngled = (tx, ty, ang) => {
+    let s = '', L2 = len, tw = 7, tex = 0;
+    if (gun === 'blaster'){
+      L2 = len + (t('range') ? 8 : 0); tex = t('dmg') ? 2 : 0;
+      if (t('rate') >= 1) s += `<circle cx="9" cy="${th/2+4}" r="5" fill="${col}" ${st(2.2)}/><circle cx="9" cy="${th/2+4}" r="1.7" fill="${K}"/>`;
+      s += `<rect x="0" y="${-th/2}" width="${L2}" height="${th}" rx="3" fill="${G}" ${st(2.5)}/>`;
+      if (t('rate') === 2) s += `<rect x="2" y="${-th/2-6}" width="${L2-7}" height="5" rx="2" fill="${G}" ${st(2)}/><rect x="${L2-7}" y="${-th/2-7}" width="5" height="7" rx="2" fill="${col}" ${st(2)}/>`;
+      if (t('range') === 2) s += `<rect x="9" y="${-th/2-12}" width="3" height="6" fill="${G}"/><rect x="2" y="${-th/2-17}" width="18" height="6" rx="3" fill="${K}"/><circle cx="18" cy="${-th/2-14}" r="1.9" fill="${W}" opacity="0.9"/>`;
+      tw = 7 + tex;
+      s += `<rect x="${L2-4}" y="${-th/2-1.5-tex}" width="${tw}" height="${th+3+2*tex}" rx="2.5" fill="${col}" ${st(2.5)}/>`;
+      if (t('dmg') === 2){ const e = L2 - 4 + tw; s += `<path d="M${e} ${-th/2+0.5} L${e+6} ${-th/2-3.5} L${e+6} ${th/2+3.5} L${e} ${th/2-0.5} Z" fill="${col}" ${st(2.2)} stroke-linejoin="round"/>`; }
+    } else if (gun === 'launcher'){
+      L2 = len + (t('range') ? 8 : 0);
+      s += `<rect x="-4" y="${-th/2}" width="${L2+4}" height="${th}" rx="5" fill="${G}" ${st(2.5)}/>`;
+      if (t('dmg')) s += `<rect x="${L2-13}" y="${-th/2+1.2}" width="3" height="${th-2.4}" fill="${col}"/><rect x="${L2-8}" y="${-th/2+1.2}" width="3" height="${th-2.4}" fill="${col}"/>`;
+      const dr = [6, 7.5, 9][t('blast')];
+      s += `<circle cx="4" cy="0" r="${dr}" fill="${DRUM}" ${st(2.2)}/>` + (t('blast') === 2 ? `<circle cx="4" cy="0" r="4" fill="${col}" ${st(1.4)}/>` : '');
+      if (t('rate') === 2) s += `<circle cx="13" cy="${-th/2-5}" r="4.5" fill="${DRUM}" ${st(2.2)}/><circle cx="13" cy="${-th/2-5}" r="1.7" fill="${col}"/>`;
+      if (t('range') === 2) s += `<path d="M${L2-4} ${-th/2-1.5} L${L2} ${-th/2-7} L${L2+3} ${-th/2-7} L${L2+3} ${-th/2-1.5} Z M${L2-4} ${th/2+1.5} L${L2} ${th/2+7} L${L2+3} ${th/2+7} L${L2+3} ${th/2+1.5} Z" fill="${G}" ${st(2)} stroke-linejoin="round"/>`;
+      s += `<rect x="${L2-4}" y="${-th/2-1.5}" width="7" height="${th+3}" rx="2.5" fill="${col}" ${st(2.5)}/>`;
+      if (t('dmg') === 2) s += `<circle cx="${L2+7}" cy="0" r="5" fill="${K}"/><path d="M${L2+9} -4 Q${L2+11} -8 ${L2+14} -8" fill="none" stroke="${K}" stroke-width="1.8" stroke-linecap="round"/><circle cx="${L2+14.5}" cy="-8.5" r="2" fill="${col}" ${st(1)}/>`;
+    } else if (gun === 'sniper'){
+      L2 = len + (t('range') === 2 ? 8 : 0);
+      if (t('range') === 2) s += `<g stroke="${K}" stroke-width="2.6" stroke-linecap="round"><line x1="${L2*0.7}" y1="2" x2="${L2*0.7-4}" y2="12"/><line x1="${L2*0.7}" y1="2" x2="${L2*0.7+5}" y2="12"/></g>`;
+      if (t('rate')) s += `<rect x="10" y="${th/2-1}" width="7" height="${t('rate') === 2 ? 11 : 8}" rx="2" fill="${col}" ${st(2.2)}/>`;
+      s += `<rect x="0" y="${-th/2}" width="${L2}" height="${th}" rx="2" fill="${G}" ${st(2.5)}/>`;
+      s += t('range') ? `<rect x="11" y="${-th/2-2}" width="3" height="3" fill="${G}"/><rect x="3" y="${-th/2-9}" width="21" height="7" rx="3.5" fill="${K}"/><circle cx="22" cy="${-th/2-5.5}" r="2.2" fill="${W}" opacity="0.9"/>` : `<rect x="6" y="${-th/2-6}" width="15" height="5" rx="2.5" fill="${K}"/>`;
+      tw = [7, 9, 11][t('dmg')]; tex = t('dmg') ? 1.5 : 0;
+      s += `<rect x="${L2-4}" y="${-th/2-1.5-tex}" width="${tw}" height="${th+3+2*tex}" rx="2" fill="${col}" ${st(2.5)}/>`;
+      if (t('dmg') === 2) s += `<rect x="${L2-1}" y="${-th/2}" width="1.5" height="${th}" fill="${K}"/><rect x="${L2+2.5}" y="${-th/2}" width="1.5" height="${th}" fill="${K}"/>`;
+      if (t('line')){ const e = L2 - 4 + tw, w2 = t('line') === 2 ? 7 : 5, h2 = t('line') === 2 ? 9 : 5.5; s += `<path d="M${e} -2 L${e+w2} ${-h2} L${e+w2} ${h2} L${e} 2 Z" fill="${col}" ${st(2)} stroke-linejoin="round"/>`; }
+    } else {
+      s += `<rect x="0" y="${-th/2}" width="${len}" height="${th}" rx="3" fill="${G}" ${st(2.5)}/><rect x="${len-4}" y="${-th/2-1.5}" width="7" height="${th+3}" rx="2.5" fill="${col}" ${st(2.5)}/>`;
+    }
+    return `<g transform="translate(${tx} ${ty}) rotate(${ang})">${s}</g>`;
+  };
+  // ---- side view (E) guns, matching the Class upgrades mockups
+  const gunSide = () => {
+    let s = '';
+    if (gun === 'blaster'){
+      const bw = 30 + (t('range') ? 8 : 0), btx = bw - 5, btw = t('dmg') ? 9 : 7, bte = btx + btw;
+      s += `<rect x="-2" y="-28" width="${bw}" height="9" rx="3" fill="${G}" ${st(2.5)}/><circle cx="9" cy="-30" r="4.5" fill="${col}" ${st(2)}/>`;
+      if (t('rate') === 2) s += `<rect x="2" y="-36" width="${bw-9}" height="6" rx="2" fill="${G}" ${st(2.2)}/><rect x="${bw-9}" y="-37" width="5" height="8" rx="2" fill="${col}" ${st(2.2)}/>`;
+      if (t('range') === 2) s += `<rect x="12" y="-42" width="3" height="7" fill="${G}"/><rect x="4" y="-48" width="20" height="7" rx="3.5" fill="${K}"/><circle cx="22" cy="-44.5" r="2.2" fill="${W}" opacity="0.9"/>`;
+      s += `<rect x="${btx}" y="${t('dmg') ? -31.5 : -29.5}" width="${btw}" height="${t('dmg') ? 16 : 12}" rx="2.5" fill="${col}" ${st(2.5)}/>`;
+      if (t('dmg') === 2) s += `<path d="M${bte} -30 L${bte+7} -35 L${bte+7} -12 L${bte} -17 Z" fill="${col}" ${st(2.5)} stroke-linejoin="round"/><circle cx="${bte+4}" cy="-8" r="2.4" fill="${col}" ${st(1.5)}/>`;
+      if (t('rate')) s += `<circle cx="10" cy="-14" r="6" fill="${col}" ${st(2.5)}/><circle cx="10" cy="-14" r="2" fill="${K}"/>`;
+      return s + hand(3,-22) + hand(19,-23);
+    }
+    if (gun === 'roller'){
+      const rr = [8.5, 10.5, 12.5][rW], rcx = 26 + rr*0.5, rcy = -rr, f1 = v => Math.round(v*10)/10;
+      s += `<line x1="2" y1="-24" x2="${rcx-1}" y2="${rcy-0.5}" stroke="${K}" stroke-width="6" stroke-linecap="round"/><line x1="2" y1="-24" x2="${rcx-1}" y2="${rcy-0.5}" stroke="${G}" stroke-width="3" stroke-linecap="round"/>`;
+      if (t('ram') === 2){ let d = ''; for (let k=0;k<8;k++){ const a = k*Math.PI/4 + Math.PI/8, P = (an, r) => f1(rcx + Math.cos(an)*r) + ' ' + f1(rcy + Math.sin(an)*r); d += 'M' + P(a-0.24, rr-1) + ' L' + P(a, rr+5) + ' L' + P(a+0.24, rr-1) + ' Z '; } s += `<path d="${d}" fill="${STEEL}" ${st(1.5)} stroke-linejoin="round"/>`; }
+      s += `<circle cx="${rcx}" cy="${rcy}" r="${rr}" fill="${col}" ${st(3)}/>`;
+      if (rW === 2) s += `<circle cx="${rcx}" cy="${rcy}" r="${rr-3.5}" fill="none" stroke="${W}" stroke-width="2" opacity="0.7"/>`;
+      if (t('ram')) for (let k=0;k<8;k++){ const a = k*Math.PI/4; s += `<circle cx="${f1(rcx + Math.cos(a)*(rr+0.6))}" cy="${f1(rcy + Math.sin(a)*(rr+0.6))}" r="1.8" fill="${K}"/>`; }
+      s += t('scd') ? bolt(rcx, rcy, f1(rr/8.5)) : `<circle cx="${rcx}" cy="${rcy}" r="2.5" fill="${K}"/>`;
+      return s + hand(4,-23) + hand(13,-18);
+    }
+    if (gun === 'launcher'){
+      const obw = 36 + (t('range') ? 8 : 0), otx = obw - 10;
+      s += `<rect x="-8" y="-34" width="${obw}" height="15" rx="6" fill="${G}" ${st(2.5)}/><circle cx="4" cy="-26.5" r="${[8.5, 10.5, 12][t('blast')]}" fill="${DRUM}" ${st(2.5)}/>`;
+      if (t('blast') === 2) s += `<circle cx="4" cy="-26.5" r="5" fill="${col}" ${st(1.5)}/><ellipse cx="2.6" cy="-28.4" rx="2" ry="1.3" fill="${W}" opacity="0.6"/>`;
+      if (t('dmg')) s += `<rect x="${otx-9}" y="-32.8" width="3" height="12.6" fill="${col}"/><rect x="${otx-5}" y="-32.8" width="3" height="12.6" fill="${col}"/>`;
+      if (t('rate') === 2) s += `<rect x="12" y="-38" width="4" height="5" fill="${G}"/><circle cx="14" cy="-40.5" r="5.5" fill="${DRUM}" ${st(2.5)}/><circle cx="14" cy="-40.5" r="2" fill="${col}"/>`;
+      if (t('range') === 2) s += `<path d="M${otx} -36 L${otx+4} -42 L${otx+8} -42 L${otx+8} -36 Z M${otx} -17 L${otx+4} -11 L${otx+8} -11 L${otx+8} -17 Z" fill="${G}" ${st(2)} stroke-linejoin="round"/>`;
+      s += `<rect x="${otx}" y="-36" width="8" height="19" rx="3" fill="${col}" ${st(2.5)}/>`;
+      if (t('dmg') === 2) s += `<circle cx="${otx+13}" cy="-26.5" r="6" fill="${K}"/><circle cx="${otx+11}" cy="-28.6" r="1.6" fill="${W}" opacity="0.5"/><path d="M${otx+15} -31.5 Q${otx+17} -36.5 ${otx+20} -36.5" fill="none" stroke="${K}" stroke-width="2" stroke-linecap="round"/><circle cx="${otx+21}" cy="-37" r="2.2" fill="${col}" ${st(1)}/>`;
+      return s + hand(6,-18) + hand(20,-19);
+    }
+    if (gun === 'sniper'){
+      const lbl = 44 + (t('range') === 2 ? 8 : 0), ltx = lbl - 1, ltw = [6, 8, 10][t('dmg')], lte = ltx + ltw;
+      s += `<rect x="-9" y="-29" width="13" height="10" rx="3" fill="${G}" ${st(2.5)}/>`;
+      if (t('range') === 2) s += `<g stroke="${K}" stroke-width="2.8" stroke-linecap="round"><line x1="34" y1="-22" x2="29" y2="-9"/><line x1="34" y1="-22" x2="40" y2="-9"/></g>`;
+      s += `<rect x="2" y="-27" width="${lbl}" height="6" rx="2" fill="${G}" ${st(2.5)}/>`;
+      s += t('range') ? `<rect x="14" y="-31" width="3" height="4" fill="${G}"/><rect x="4" y="-39" width="25" height="8" rx="4" fill="${K}"/><circle cx="27" cy="-35" r="2.6" fill="${W}" opacity="0.9"/>` : `<rect x="8" y="-35" width="17" height="6" rx="3" fill="${K}"/>`;
+      if (t('rate')) s += `<rect x="12" y="-21" width="8" height="${t('rate') === 2 ? 13 : 9}" rx="2" fill="${col}" ${st(2.5)}/>`;
+      s += `<rect x="${ltx}" y="${t('dmg') ? -30 : -28.5}" width="${ltw}" height="${t('dmg') ? 12 : 9}" rx="2" fill="${col}" ${st(2.5)}/>`;
+      if (t('dmg') === 2) s += `<rect x="${ltx+3}" y="-28" width="1.6" height="8" fill="${K}"/><rect x="${ltx+6.2}" y="-28" width="1.6" height="8" fill="${K}"/>`;
+      if (t('line') === 1) s += `<path d="M${lte} -27 L${lte+5} -30.5 L${lte+5} -19.5 L${lte} -23 Z" fill="${col}" ${st(2)} stroke-linejoin="round"/>`;
+      if (t('line') === 2) s += `<path d="M${lte} -28 L${lte+7} -34 L${lte+7} -16 L${lte} -22 Z" fill="${col}" ${st(2)} stroke-linejoin="round"/><circle cx="${lte+4}" cy="-10" r="2.2" fill="${col}" ${st(1.5)}/>`;
+      return s + hand(3,-21) + hand(24,-22);
+    }
+    if (gun === 'sprayer') return `<path d="M-16 -26 C-14 -12 -4 -14 2 -22" fill="none" stroke="${K}" stroke-width="6" stroke-linecap="round"/><path d="M-16 -26 C-14 -12 -4 -14 2 -22" fill="none" stroke="${col}" stroke-width="3" stroke-linecap="round"/><rect x="0" y="-28" width="20" height="10" rx="3" fill="${G}" ${st(2.5)}/><path d="M19 -27 L33 -33 L33 -13 L19 -19 Z" fill="${col}" ${st(2.5)} stroke-linejoin="round"/>` + hand(4,-21) + hand(15,-22);
+    return `<rect x="3" y="-24" width="6" height="9" rx="2" fill="${G}" ${st(2)}/><rect x="1" y="-29" width="18" height="8" rx="3" fill="${G}" ${st(2.5)}/><rect x="16" y="-30" width="6" height="10" rx="2.5" fill="${col}" ${st(2.5)}/>` + hand(6,-19) + hand(12,-23);
+  };
+  // ---- front (S) and back (N) guns: size changes plus the clearest attachment
+  const longer = (gun === 'blaster' || gun === 'launcher') ? (t('range') ? 6 : 0) : gun === 'sniper' ? (t('range') === 2 ? 6 : 0) : 0;
+  const tipBig = (gun === 'blaster' || gun === 'sniper') ? t('dmg') : gun === 'launcher' ? t('blast') : 0;
+  const gunFront = () => {
+    const sh = Math.round(len*0.55) + longer, mcx = 4 + th/2; let s = '';
+    if (gun === 'blaster' && t('rate') === 2) s += `<rect x="${4+th+1}" y="-31" width="5" height="${sh-2}" rx="2" fill="${G}" ${st(2)}/>`;
+    if (gun === 'blaster' && t('rate')) s += `<circle cx="${4+th+(t('rate') === 2 ? 9 : 4)}" cy="-21" r="4.5" fill="${col}" ${st(2)}/>`;
+    if (gun === 'sniper' && t('rate')) s += `<rect x="${4+th+1}" y="-24" width="6" height="${t('rate') === 2 ? 10 : 7}" rx="2" fill="${col}" ${st(2)}/>`;
+    s += `<rect x="4" y="-29" width="${th}" height="${sh}" rx="3" fill="${G}" ${st(2.5)}/>`;
+    const rx = th/2 + 1.5 + tipBig*1.5 + (gun === 'sniper' ? t('line')*2.5 : 0), ry = 3.5 + tipBig*0.8;
+    s += `<ellipse cx="${mcx}" cy="${-29+sh}" rx="${rx}" ry="${ry}" fill="${col}" ${st(2.5)}/>`;
+    if (gun === 'launcher' && t('dmg') === 2) s += `<circle cx="${mcx}" cy="${-29+sh}" r="${Math.max(2.5, rx-3.5)}" fill="${K}"/>`;
+    if (gun === 'launcher' && t('rate') === 2) s += `<circle cx="${4+th+5}" cy="-27" r="4.5" fill="${DRUM}" ${st(2)}/>`;
+    return s + hand(mcx,-25) + hand(-4,-23);
+  };
+  const gunBack = () => {
+    const hgt = 16 + longer, y0 = -46 - longer, tw = th + tipBig*2; let s = '';
+    if (gun === 'blaster' && t('rate') === 2) s += `<rect x="${7+th}" y="${y0+3}" width="5" height="${hgt-4}" rx="2" fill="${G}" ${st(2)}/>`;
+    if ((gun === 'blaster' || gun === 'sniper') && t('range') === 2) s += `<rect x="${7-6}" y="${y0+4}" width="5" height="10" rx="2.5" fill="${K}"/>`;
+    s += `<rect x="7" y="${y0}" width="${th}" height="${hgt}" rx="3" fill="${G}" ${st(2.5)}/><rect x="${7 - tipBig}" y="${y0-3}" width="${tw}" height="6" rx="2.5" fill="${col}" ${st(2.5)}/>`;
+    if (gun === 'sniper' && t('line')) s += `<path d="M${7+th/2-2} ${y0-3} L${7+th/2-3-t('line')*2.5} ${y0-8} L${7+th/2+3+t('line')*2.5} ${y0-8} L${7+th/2+2} ${y0-3} Z" fill="${col}" ${st(2)} stroke-linejoin="round"/>`;
+    return s;
+  };
+  // ---- assemble the view
   let s = `<ellipse cx="0" cy="0" rx="20" ry="7" fill="${K}" opacity="0.16"/>`;
   if (base === 'E'){
-    s += legsSide();
-    s += `<rect x="-24" y="-39" width="13" height="25" rx="5" fill="${W}" stroke="${packStroke}" stroke-width="3"/>` + inkFill(-21.5, 8, -17, 19);
-    s += body + head(2) + `<rect x="7" y="-57" width="14" height="11" rx="5.5" fill="${K}"/>` + glint(12) + antenna(-2, -8);
-    if (gun === 'blaster') s += `<rect x="-2" y="-28" width="30" height="9" rx="3" fill="${G}" ${st(2.5)}/><rect x="25" y="-29.5" width="7" height="12" rx="2.5" fill="${col}" ${st(2.5)}/><circle cx="9" cy="-30" r="4.5" fill="${col}" ${st(2)}/>` + hand(3,-22) + hand(19,-23);
-    else if (gun === 'roller') s += `<line x1="2" y1="-24" x2="27" y2="-9" stroke="${K}" stroke-width="6" stroke-linecap="round"/><line x1="2" y1="-24" x2="27" y2="-9" stroke="${G}" stroke-width="3" stroke-linecap="round"/><circle cx="30" cy="-8.5" r="8.5" fill="${col}" ${st(3)}/><circle cx="30" cy="-8.5" r="2.5" fill="${K}"/>` + hand(4,-23) + hand(13,-18);
-    else if (gun === 'launcher') s += `<rect x="-8" y="-34" width="36" height="15" rx="6" fill="${G}" ${st(2.5)}/><circle cx="4" cy="-26.5" r="8.5" fill="#5C6676" ${st(2.5)}/><rect x="26" y="-36" width="8" height="19" rx="3" fill="${col}" ${st(2.5)}/>` + hand(6,-18) + hand(20,-19);
-    else if (gun === 'sprayer') s += `<path d="M-16 -26 C-14 -12 -4 -14 2 -22" fill="none" stroke="${K}" stroke-width="6" stroke-linecap="round"/><path d="M-16 -26 C-14 -12 -4 -14 2 -22" fill="none" stroke="${col}" stroke-width="3" stroke-linecap="round"/><rect x="0" y="-28" width="20" height="10" rx="3" fill="${G}" ${st(2.5)}/><path d="M19 -27 L33 -33 L33 -13 L19 -19 Z" fill="${col}" ${st(2.5)} stroke-linejoin="round"/>` + hand(4,-21) + hand(15,-22);
-    else if (gun === 'pistol') s += `<rect x="3" y="-24" width="6" height="9" rx="2" fill="${G}" ${st(2)}/><rect x="1" y="-29" width="18" height="8" rx="3" fill="${G}" ${st(2.5)}/><rect x="16" y="-30" width="6" height="10" rx="2.5" fill="${col}" ${st(2.5)}/>` + hand(6,-19) + hand(12,-23);
-    else s += `<rect x="-9" y="-29" width="13" height="10" rx="3" fill="${G}" ${st(2.5)}/><rect x="2" y="-27" width="44" height="6" rx="2" fill="${G}" ${st(2.5)}/><rect x="8" y="-35" width="17" height="6" rx="3" fill="${K}"/><rect x="43" y="-28.5" width="6" height="9" rx="2" fill="${col}" ${st(2.5)}/>` + hand(3,-21) + hand(24,-22);
+    const top = L.ink ? -44 : -39, left = L.ink ? -26 : -24;
+    s += speedLines() + legsSide();
+    if (L.ink === 2) s += tank(-35, -41, 11, 26, 5, -32.5, 6, -18, 19);
+    s += pipes(-26, -17, top);
+    s += L.ink ? cap(-22, -48, 7) + tank(-26, -44, 15, 31, 6, -23.5, 10, -16, 25) : tank(-24, -39, 13, 25, 5, -21.5, 8, -17, 19);
+    s += spares([[left-3,-36],[left-3,-28.5],[left-3,-21]]);
+    s += body + vest(-9, -4) + head(2) + `<rect x="7" y="-57" width="14" height="11" rx="5.5" fill="${K}"/>` + glint(12) + antenna(-2, -8);
+    s += gunSide();
   } else if (base === 'S'){
+    const top = L.ink ? -44 : -39;
     s += legsFront();
-    s += `<rect x="-18" y="-39" width="36" height="20" rx="6" fill="${W}" stroke="${packStroke}" stroke-width="3"/>`;
-    s += body + emblem(-7) + head(0) + `<rect x="-12" y="-57" width="24" height="11" rx="5.5" fill="${K}"/>` + glint(-7) + glint(5) + antenna(0, 4);
-    if (gun === 'roller') s += `<rect x="-1.5" y="-26" width="3" height="18" fill="${G}" ${st(2)}/><rect x="-20" y="-9" width="40" height="9" rx="4.5" fill="${col}" ${st(3)}/>` + hand(-4,-24) + hand(4,-24);
-    else { const sh = Math.round(len*0.55), mcx = 4 + th/2; s += `<rect x="4" y="-29" width="${th}" height="${sh}" rx="3" fill="${G}" ${st(2.5)}/><ellipse cx="${mcx}" cy="${-29+sh}" rx="${th/2+1.5}" ry="3.5" fill="${col}" ${st(2.5)}/>` + hand(mcx,-25) + hand(-4,-23); }
+    if (L.ink === 2) s += tank(-25, -46, 10, 22, 4.5, -23, 6, -28, 14) + tank(15, -46, 10, 22, 4.5, 17, 6, -28, 14);
+    s += pipes(-21, 15, top);
+    s += L.ink ? cap(-4, -48, 8) + `<rect x="-20" y="-44" width="40" height="26" rx="7" fill="${W}" stroke="${packStroke}" stroke-width="3"/>` : `<rect x="-18" y="-39" width="36" height="20" rx="6" fill="${W}" stroke="${packStroke}" stroke-width="3"/>`;
+    s += body + vest(-8, 8) + emblem(-7) + head(0) + `<rect x="-12" y="-57" width="24" height="11" rx="5.5" fill="${K}"/>` + glint(-7) + glint(5) + antenna(0, 4);
+    if (gun === 'roller'){ const w = 40 + rW*8; s += `<rect x="-1.5" y="-26" width="3" height="18" fill="${G}" ${st(2)}/>` + rollBar(0, -4.5, w, 9 + rW*1.5) + hand(-4,-24) + hand(4,-24); }
+    else s += gunFront();
   } else if (base === 'SE'){
-    s += legs34();
-    s += `<rect x="-21" y="-38" width="12" height="23" rx="5" fill="${W}" stroke="${packStroke}" stroke-width="3"/>` + inkFill(-19, 6, -18, 17);
-    s += body + emblem(-6) + head(1) + `<rect x="-5" y="-57" width="22" height="11" rx="5.5" fill="${K}"/>` + glint(0) + glint(10) + antenna(-2, -6);
-    if (gun === 'roller') s += `<line x1="3" y1="-24" x2="18" y2="-9" stroke="${K}" stroke-width="6" stroke-linecap="round"/><line x1="3" y1="-24" x2="18" y2="-9" stroke="${G}" stroke-width="3" stroke-linecap="round"/>` + roll(21, -6, 35) + hand(2,-25) + hand(10,-17);
+    const top = L.ink ? -43 : -38, left = L.ink ? -23 : -21;
+    s += speedLines() + legs34();
+    if (L.ink === 2) s += tank(-31, -40, 9, 24, 4, -29, 5, -19, 17);
+    s += pipes(-23, -15, top);
+    s += L.ink ? cap(-19, -47, 6) + tank(-23, -43, 14, 30, 5.5, -21, 8, -16, 23) : tank(-21, -38, 12, 23, 5, -19, 6, -18, 17);
+    s += spares([[left-2.5,-34],[left-2.5,-26.5],[left-2.5,-19]]);
+    s += body + vest(-8, 4) + emblem(-6) + head(1) + `<rect x="-5" y="-57" width="22" height="11" rx="5.5" fill="${K}"/>` + glint(0) + glint(10) + antenna(-2, -6);
+    if (gun === 'roller') s += `<line x1="3" y1="-24" x2="18" y2="-9" stroke="${K}" stroke-width="6" stroke-linecap="round"/><line x1="3" y1="-24" x2="18" y2="-9" stroke="${G}" stroke-width="3" stroke-linecap="round"/>` + roll(21 + rW*1.5, -6, 35) + hand(2,-25) + hand(10,-17);
     else { const a = 35*Math.PI/180; s += gunAngled(4, -25, 35) + hand(4,-24) + hand((4 + Math.cos(a)*len*0.6).toFixed(1), (-25 + Math.sin(a)*len*0.6).toFixed(1)); }
   } else if (base === 'NE'){
-    s += gun === 'roller' ? roll(18, -22, -35) : gunAngled(8, -30, -35);
-    s += legs34() + body + head(1) + `<rect x="13" y="-57" width="5" height="11" rx="2.5" fill="${K}"/>` + antenna(-2, -6);
-    s += `<rect x="-16" y="-40" width="20" height="26" rx="6" fill="${W}" stroke="${packStroke}" stroke-width="3"/>` + inkFill(-13, 14, -17, 20);
+    const top = L.ink ? -45 : -40;
+    s += speedLines();
+    s += gun === 'roller' ? roll(18 + rW*1.5, -22 - rW, -35) : gunAngled(8, -30, -35);
+    s += legs34() + body + vest() + head(1) + `<rect x="13" y="-57" width="5" height="11" rx="2.5" fill="${K}"/>` + antenna(-2, -6);
+    s += pipes(-14, -4, top);
+    if (L.ink === 2) s += tank(-26, -42, 10, 27, 4.5, -24, 6, -18, 20);
+    s += L.ink ? cap(-9, -49, 6) + tank(-18, -45, 24, 32, 7, -15, 18, -16, 26) : tank(-16, -40, 20, 26, 6, -13, 14, -17, 20);
+    s += spares([[-14,-11],[-7,-11],[0,-11]]);
   } else {
-    s += gun === 'roller' ? `<rect x="-19" y="-22" width="38" height="8" rx="4" fill="${col}" ${st(3)}/>` : `<rect x="7" y="-46" width="${th}" height="16" rx="3" fill="${G}" ${st(2.5)}/><rect x="7" y="-49" width="${th}" height="6" rx="2.5" fill="${col}" ${st(2.5)}/>`;
-    s += legsFront() + body + head(0) + antenna(0, -4);
-    s += `<rect x="-11" y="-40" width="22" height="26" rx="6" fill="${W}" stroke="${packStroke}" stroke-width="3"/>` + inkFill(-8, 16, -17, 20);
+    const top = L.ink ? -45 : -40;
+    s += gun === 'roller' ? rollBar(0, -18, 38 + rW*8, 8 + rW*1.5) : gunBack();
+    s += legsFront() + body + vest() + head(0) + antenna(0, -4);
+    s += pipes(-19, 13, top);
+    if (L.ink === 2) s += cap(-13, -48, 6) + cap(7, -48, 6) + tank(-19, -44, 17, 31, 6, -16, 11, -16, 25) + tank(2, -44, 17, 31, 6, 5, 11, -16, 25);
+    else s += L.ink ? cap(-3, -49, 6) + tank(-13, -45, 26, 32, 7, -10, 20, -16, 26) : tank(-11, -40, 22, 26, 6, -8, 16, -17, 20);
+    s += spares([[-12,-11],[0,-11],[12,-11]]);
   }
-  const px = Math.round(100*SPR_PX);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-45 -84 100 100">${s}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(SPR_VB[2]*SPR_PX)}" height="${Math.round(SPR_VB[3]*SPR_PX)}" viewBox="${SPR_VB.join(' ')}">${s}</svg>`;
 }
-function getSprite(base, col, gun, lvl, flash, fr){
-  fr = fr || 0;
-  const key = base + '|' + col + '|' + gun + '|' + lvl + '|' + (flash ? 1 : 0) + '|' + fr;
+const SPR_VB = [-50, -92, 120, 112];   // sprite viewBox: x, y, w, h (feet at 0,0)
+function getSprite(base, col, gun, lvl, flash, fr, cls, look){
+  fr = fr || 0; look = look | 0;
+  const key = base + '|' + col + '|' + gun + '|' + lvl + '|' + (flash ? 1 : 0) + '|' + fr + '|' + (look ? (cls || '') + look : '');
   let e = spriteCache.get(key);
   if (!e){
     e = {img:new Image(), ready:false, cbs:[]};
     e.img.onload = () => { e.ready = true; for (const f of e.cbs) f(); e.cbs = []; };
-    e.img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(spriteSVG(base, col, gun, lvl, flash, fr));
+    e.img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(spriteSVG(base, col, gun, lvl, flash, fr, look ? decodeLook(cls, look) : NO_LOOK));
     spriteCache.set(key, e);
+    if (spriteCache.size > 1500) spriteCache.delete(spriteCache.keys().next().value);
   }
   return e;
 }
 function dirOf(a){ return DIRS[((Math.round(a/(Math.PI/4)) % 8) + 8) % 8]; }
+// upgrade look: sent by the server online, worked out from the upgrades in practice
+function lookOf(t){ return t.look !== undefined ? t.look : t.stats ? S.lookCode(t) : 0; }
 function inkLevel(t){ if (!t.icap) return 3; const f = t.ink/t.icap; return f <= 0.03 ? 0 : f < 0.4 ? 1 : f < 0.75 ? 2 : 3; }
 // a short pop when a Rookie transforms into a class
 const seenCls = new Map(), popAt = new Map();
@@ -559,10 +725,10 @@ function drawPlayer(c, t, opts){
   const ph = clk*7 + t.id*0.37;
   const fr = t.moving ? 1 + (Math.floor(ph) % 2) : 0;
   const col = opts.color || PCOL[t.slot];
-  const e = getSprite(base, col, GUN_OF[t.cls] || 'blaster', opts.lvl !== undefined ? opts.lvl : inkLevel(t), t.flash > 0, fr);
+  const e = getSprite(base, col, GUN_OF[t.cls] || 'blaster', opts.lvl !== undefined ? opts.lvl : inkLevel(t), t.flash > 0, fr, t.cls, opts.look !== undefined ? opts.look : lookOf(t));
   const S = sc*SPR_UNIT;
   c.save(); c.translate(t.x, t.y + SPR_FEET*sc); if (mirror) c.scale(-1, 1);
-  if (e.ready) c.drawImage(e.img, -45*S, -84*S, 100*S, 100*S);
+  if (e.ready) c.drawImage(e.img, SPR_VB[0]*S, SPR_VB[1]*S, SPR_VB[2]*S, SPR_VB[3]*S);
   else { c.beginPath(); c.arc(0, -40*S, 18*S, 0, Math.PI*2); c.fillStyle = col; c.fill(); c.lineWidth = 3; c.strokeStyle = INK; c.stroke(); }
   c.restore();
 }

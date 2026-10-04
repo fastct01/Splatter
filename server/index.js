@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
-import { createSim, encodeGrid, CLASS_LIST, OBJ_TYPES, MAX_PLAYERS } from '../shared/sim.js';
+import { createSim, encodeGrid, CLASS_LIST, OBJ_TYPES, MAX_PLAYERS, lookCode } from '../shared/sim.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = path.join(ROOT, 'public'), SHARED = path.join(ROOT, 'shared');
@@ -89,7 +89,7 @@ class Room {
     const tanks = G.tanks.map(t => [t.id, Math.round(t.x), Math.round(t.y), Math.round(t.aim*100), CLASS_LIST.indexOf(t.cls), t.slot, t.team,
       Math.ceil(Math.max(0,t.hp)), Math.round(t.mhp),
       (t.dead?1:0) | (t.protect>0?2:0) | (t.flash>0?4:0) | (t.charge?8:0) | (t.spinning?16:0) | (t.human?32:0) | (t.moving?64:0),
-      t.level, Math.round(t.spinA*100)]);
+      t.level, Math.round(t.spinA*100), lookCode(t)]);
     const bombs = G.bombs.map(b => [b.id, Math.round(b.x0), Math.round(b.y0), Math.round(b.x1), Math.round(b.y1), Math.round(b.t*1000), Math.round(b.T*1000), b.po, b.R]);
     const common = {type:'snap', t:Date.now(), tm:Math.round(G.time*10)/10, ph:this.phase, T:tanks, M:bombs, P:this.stamps, C:Array.from(G.counts)};
     if (roster) common.R = roster;
