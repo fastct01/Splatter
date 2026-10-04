@@ -23,18 +23,27 @@ export const CLASSES = {
 export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner','rookie'];   // network order: only append
 export const CLASS_KEYS = ['splat','roller','bomber','liner'];   // classes a Rookie can transform into
 export const CLASS_AT = 5;                                       // upgrades bought before the class menu opens
-export const OBJ_TYPES = ['can','barrel','gold','triangle'];
-export const OBJ = {can:{hp:18,mass:2,pts:1,r:22,splat:50}, barrel:{hp:110,mass:6,pts:6,r:30,splat:120}, gold:{hp:200,mass:4,pts:20,r:26,splat:160}, triangle:{hp:75,mass:3,pts:5,r:26,splat:75}};
-// Share of normal spawns: triangles are rare (about 1 in 12)
-export const TRIANGLE_CHANCE = 0.08, BARREL_CHANCE = 0.22;
+export const OBJ_TYPES = ['can','barrel','gold','triangle','orb'];
+export const OBJ = {can:{hp:18,mass:2,pts:1,r:22,splat:50}, barrel:{hp:110,mass:6,pts:6,r:30,splat:120}, gold:{hp:200,mass:4,pts:20,r:26,splat:160}, triangle:{hp:75,mass:3,pts:5,r:26,splat:75}, orb:{hp:8,mass:1,pts:1,r:15,splat:34}};
+// Share of the floating objects on the map (out of 100): pink orbs are the most common, prisms the rarest.
+// New objects fill whichever type is furthest below its share, so the mix stays the same even though orbs and tins break fastest.
+// The gold tin comes on its own timer.
+export const SPAWN_WEIGHT = {orb:42, can:30, barrel:18, triangle:10};
 // damage a player takes when bumping into a floating object (at most once every BUMP_CD seconds per object)
 export const MOVE_SCALE = 0.85;   // everyone moves 15% slower, except on enemy paint (which already slows you)
 export const BUMP_DMG = {can:3, gold:3, triangle:12, barrel:22}, BUMP_CD = 0.6, ROOKIE_BUMP = 3;   // Rookies take 3x bump damage
 // Rollers ram for a third of the normal damage; each Ram damage upgrade adds only +5% (Charge still doubles it)
 export const ROLLER_RAM = 1/3, RAM_PER_UP = 0.05;
 const ramMul = t => t.cls === 'roller' ? ROLLER_RAM*(t.specialT > 0 ? 2 : 1)*(1 + RAM_PER_UP*up(t, 'ram')) : 1;
-export const OBJ_TARGET = 52;   // floating objects kept on the (bigger) map
-export function randomObjectType(){ const r = Math.random(); return r < TRIANGLE_CHANCE ? 'triangle' : r < TRIANGLE_CHANCE + BARREL_CHANCE ? 'barrel' : 'can'; }
+export const OBJ_TARGET = 60;   // floating objects kept on the (bigger) map
+export function randomObjectType(objects){
+  const have = {}; for (const o of objects || []) have[o.type] = (have[o.type] || 0) + 1;
+  const need = {}; let sum = 0;
+  for (const k in SPAWN_WEIGHT){ need[k] = Math.max(0, SPAWN_WEIGHT[k]/100*OBJ_TARGET - (have[k] || 0)); sum += need[k]; }
+  const w = sum > 0 ? need : SPAWN_WEIGHT; let r = Math.random()*(sum > 0 ? sum : 100);
+  for (const k in w){ r -= w[k]; if (r < 0) return k; }
+  return 'orb';
+}
 const BOT_NAMES = ['blue_wave','limelight','tangerine','sunny','purp','aqua','redline','honey','moss','minty','skyhigh','indigo','magenta','cocoa','splatcat','drip','smudge','inky','roller_rex','blotto','gloss','tint'];
 
 // upgrade points come straight from splats and broken objects; an upgrade costs this many points
@@ -181,7 +190,7 @@ export function createSim(opts){
     G.tanks = humans.map(h => makeTank({id:h.id, name:h.name, human:true, slot:h.slot, team:h.team}));
     for (const t of G.tanks) spawnTank(t);
     fillBots();
-    for (let k=0;k<OBJ_TARGET;k++) spawnObject(randomObjectType());
+    for (let k=0;k<OBJ_TARGET;k++) spawnObject(randomObjectType(G.objects));
     G.spawnT = 0;
     onEvent({k:'roster'});
   }
@@ -495,7 +504,7 @@ export function createSim(opts){
     const d = OBJ[o.type];
     const owner = src ? paintOwner(src) : 0;
     if (src){ addPoints(src, d.pts); stamp(o.x, o.y, d.splat, owner, src); }
-    onEvent({k:'ring', x:o.x, y:o.y, r:d.splat, o:owner});
+    onEvent({k:'ring', x:o.x, y:o.y, r:d.splat, o:owner, t:o.type});
     if (o.type === 'barrel'){
       for (const t of G.tanks){ if (t.dead) continue; const dd = Math.hypot(t.x-o.x, t.y-o.y); if (dd < 100 + t.r){ const k = Math.max(0, 1 - dd/(100+t.r)); damage(t, 15, t === src ? null : src); const nx = (t.x-o.x)/(dd||1), ny = (t.y-o.y)/(dd||1); t.vx += nx*300*k/CLASSES[t.cls].mass; t.vy += ny*300*k/CLASSES[t.cls].mass; } }
     }
@@ -569,7 +578,7 @@ export function createSim(opts){
     for (const o of G.objects){
       if (o.dead) continue;
       o.dir += rand(-0.3,0.3)*dt;
-      const tx = Math.cos(o.dir)*15, ty = Math.sin(o.dir)*15;
+      const sp = o.type === 'orb' ? 22 : 15, tx = Math.cos(o.dir)*sp, ty = Math.sin(o.dir)*sp;   // light orbs drift a little faster
       const k = Math.min(1, 0.5*dt); o.vx += (tx - o.vx)*k; o.vy += (ty - o.vy)*k;
       o.x += o.vx*dt; o.y += o.vy*dt; o.rot += o.vr*dt; o.flash -= dt;
     }
@@ -676,7 +685,7 @@ export function createSim(opts){
     // refill gradually: one new object every 0.5 s while below the target, faster when the map is emptier
     G.spawnT = (G.spawnT || 0) - dt;
     const have = G.objects.filter(o => o.type !== 'gold').length;
-    if (have < OBJ_TARGET && G.spawnT <= 0){ spawnObject(randomObjectType()); G.spawnT = have < OBJ_TARGET*0.6 ? 0.2 : 0.5; }
+    if (have < OBJ_TARGET && G.spawnT <= 0){ spawnObject(randomObjectType(G.objects)); G.spawnT = have < OBJ_TARGET*0.6 ? 0.2 : 0.5; }
     G.goldT -= dt;
     if (G.goldT <= 0){ G.goldT = 60; if (!G.objects.some(o => o.type === 'gold')){ spawnObject('gold', true); onEvent({k:'gold'}); } }
   }

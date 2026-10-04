@@ -370,7 +370,8 @@ function handleEvent(e, myId){
   const mode = session.mode;
   switch (e.k){
     case 'shot': sfx(SFX['shot-' + e.c] ? 'shot-' + e.c : 'shot-splat', e.x, e.y, e.by === myId); break;
-    case 'ring': FX.rings.push({x:e.x, y:e.y, r:e.r, color: e.o ? ownerColor(mode, e.o) : INK, t:0, T:0.4}); sfx('splash', e.x, e.y); break;
+    case 'ring': FX.rings.push({x:e.x, y:e.y, r:e.r, color: e.o ? ownerColor(mode, e.o) : INK, t:0, T:0.4}); sfx('splash', e.x, e.y);
+      if (e.t === 'orb' && OBJ_POPS.length < 30) OBJ_POPS.push({x:e.x, y:e.y, type:'orb', t:0, T:0.5}); break;
     case 'kill': FX.feed.unshift({text: e.an ? e.an + ' splatted ' + e.bn : e.bn + ' got splatted', mine: e.a === myId || e.b === myId, t:4}); FX.feed.length = Math.min(FX.feed.length, 4); if (e.a === myId) sfx('kill'); else if (e.b === myId) sfx('splatted'); break;
     case 'gold': FX.feed.unshift({text:'A gold bucket appeared in the centre', mine:false, t:4}); FX.feed.length = Math.min(FX.feed.length, 4); break;
     case 'hit': FX.hits.push({x:e.x, y:e.y, t:0, T:0.2}); sfx('hit'); break;
@@ -833,12 +834,23 @@ function drumSVG(rot, paint, dmg){
   return {svg:g, vb:[-60, -60, 120, 120]};
 }
 // sprite size in world units per mockup unit, so each object matches its hit size
-const OBJ_SCALE = {can: 22/36*1.15, gold: 26/36*1.1, triangle: 26*1.15/44, barrel: 30/42};
+const OBJ_SCALE = {can: 22/36*1.15, gold: 26/36*1.1, triangle: 26*1.15/44, barrel: 30/42, orb: 15/24};
+function orbSVG(rot, dmg){
+  // pink paint orb: glossy sphere, a lighter swirl that turns with rot, a fixed shine on top; a crack once it's been hit
+  const r = 24, P = '#FF2D87', a = rot*Math.PI/180, sw = (x, y) => { const c = Math.cos(a), s = Math.sin(a); return f1(x*c - y*s) + ' ' + f1(x*s + y*c); };
+  let g = `<defs><radialGradient id="og" cx="0.36" cy="0.32" r="0.75"><stop offset="0" stop-color="#FF9CC6"/><stop offset="0.55" stop-color="${P}"/><stop offset="1" stop-color="#B31E5E"/></radialGradient><clipPath id="oc"><circle cx="0" cy="0" r="${r - 1.5}"/></clipPath></defs>`;
+  g += `<circle cx="0" cy="0" r="${r}" fill="url(#og)"/>`;
+  g += `<g clip-path="url(#oc)"><path d="M${sw(-13, 6)} C${sw(-5, 16)} ${sw(11, 11)} ${sw(14, -1)} C${sw(7, 5)} ${sw(-2, 7)} ${sw(-13, 6)} Z" fill="#FF8FBE" opacity="0.75"/><path d="M${sw(12, -9)} C${sw(6, -16)} ${sw(-6, -15)} ${sw(-11, -9)} C${sw(-5, -11)} ${sw(4, -12)} ${sw(12, -9)} Z" fill="#FFB5D3" opacity="0.5"/></g>`;
+  if (dmg > 0) g += `<path d="M-4 -${r} L-1 -14 L-7 -7 L-2 0" fill="none" stroke="#232A35" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>` + (dmg > 1 ? `<path d="M${r - 2} 6 L13 4 L9 11" fill="none" stroke="#232A35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>` : '');
+  g += `<circle cx="0" cy="0" r="${r}" fill="none" stroke="#232A35" stroke-width="3"/>`;
+  g += `<ellipse cx="-8.6" cy="-9.6" rx="7.2" ry="4.3" transform="rotate(-35 -8.6 -9.6)" fill="#FFFFFF" opacity="0.9"/><circle cx="1.2" cy="-14.9" r="1.7" fill="#FFFFFF" opacity="0.9"/>`;
+  return {svg:g, vb:[-27, -27, 54, 54]};
+}
 function objSprite(type, look, rot, dmg){
   const key = type + '|' + look + '|' + rot + '|' + dmg;
   let e = OBJ_SPRITES.get(key);
   if (!e){
-    const d = type === 'triangle' ? prismSVG(rot, dmg) : type === 'barrel' ? drumSVG(rot, look, dmg) : tinSVG(look, dmg, type === 'gold');
+    const d = type === 'orb' ? orbSVG(rot, dmg) : type === 'triangle' ? prismSVG(rot, dmg) : type === 'barrel' ? drumSVG(rot, look, dmg) : tinSVG(look, dmg, type === 'gold');
     e = {img:new Image(), ready:false, vb:d.vb};
     const px = 2.2;
     e.img.onload = () => { e.ready = true; };
@@ -853,13 +865,16 @@ function drawObject(c, o){
   const f = o.hp/o.maxHp, dmg = crackStage(o), tr = objTrack.get(o.id);
   const id = o.id || 0, paint = TIN_COLS[id % TIN_COLS.length];
   let rot = 0, look = '';
-  if (o.type === 'triangle'){ rot = ((Math.round(o.rot*180/Math.PI/15)*15) % 360 + 360) % 360; }
+  let bob = 0;
+  if (o.type === 'orb'){ rot = ((Math.round(o.rot*180/Math.PI/30)*30) % 360 + 360) % 360; bob = 3 + 3*Math.sin(clk*2.4 + id*1.7);   // floats and bobs over its shadow
+    c.fillStyle = 'rgba(35,42,53,' + (0.2 - bob*0.012).toFixed(3) + ')'; c.beginPath(); c.ellipse(o.x, o.y + o.r*0.9, o.r*(0.85 - bob*0.02), o.r*0.3, 0, 0, Math.PI*2); c.fill(); }
+  else if (o.type === 'triangle'){ rot = ((Math.round(o.rot*180/Math.PI/15)*15) % 360 + 360) % 360; }
   else if (o.type === 'barrel'){ rot = ((Math.round(o.rot*180/Math.PI/12)*12) % 72 + 72) % 72; look = paint; }
   else look = o.type === 'gold' ? 'gold' : paint;
   const e = objSprite(o.type, look, rot, dmg), k = OBJ_SCALE[o.type] || 0.6, [vx, vy, vw, vh] = e.vb;
   if (e.ready){
     const since = tr && tr.hitAt !== undefined ? clk - tr.hitAt : 9, big = tr && tr.bigAt !== undefined && clk - tr.bigAt < 0.35;
-    c.save(); c.translate(o.x, o.y);
+    c.save(); c.translate(o.x, o.y - bob);
     if (since < 0.3){ const q = since/0.3, a = (big ? 0.16 : 0.09)*Math.sin(q*Math.PI*3)*(1 - q); c.scale(1 + a, 1 - a); c.rotate((big ? 0.08 : 0.04)*Math.sin(q*Math.PI*4)*(1 - q)); }
     c.drawImage(e.img, vx*k, vy*k, vw*k, vh*k);
     if (o.flash > 0 || big){ c.globalCompositeOperation = 'lighter'; c.globalAlpha = big ? 0.6*(1 - (clk - tr.bigAt)/0.35) : 0.45; c.drawImage(e.img, vx*k, vy*k, vw*k, vh*k); }
@@ -921,11 +936,11 @@ function drawPops(c){
 // objects that disappear burst into pieces
 const objTrack = new Map(), OBJ_POPS = [];
 const CHIPS = [];
-const CHIP_COL = {triangle:['#E9E3FF','#B9A6FF','#FFFFFF'], barrel:['#FFFFFF','#C9D1DA'], gold:['#FFD21F','#FFE680']};
+const CHIP_COL = {triangle:['#E9E3FF','#B9A6FF','#FFFFFF'], barrel:['#FFFFFF','#C9D1DA'], gold:['#FFD21F','#FFE680'], orb:['#FF2D87','#FF8FBE']};
 function chips(o, n, col){
   const cols = CHIP_COL[o.type] || [col, '#AEB7C2'];
   for (let i=0;i<n && CHIPS.length < 160;i++){ const a = rand(0, Math.PI*2), sp = rand(60, 150);
-    CHIPS.push({x:o.x + Math.cos(a)*o.r*0.6, y:o.y + Math.sin(a)*o.r*0.4, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp*0.6, z:14, vz:rand(120, 220), rot:rand(0, 6), vr:rand(-12, 12), t:0, T:rand(0.45, 0.8), s:rand(3, 5.5), col:cols[i % cols.length], tri:o.type === 'triangle', drop:o.type === 'can'}); }
+    CHIPS.push({x:o.x + Math.cos(a)*o.r*0.6, y:o.y + Math.sin(a)*o.r*0.4, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp*0.6, z:14, vz:rand(120, 220), rot:rand(0, 6), vr:rand(-12, 12), t:0, T:rand(0.45, 0.8), s:rand(3, 5.5), col:cols[i % cols.length], tri:o.type === 'triangle', drop:o.type === 'can' || o.type === 'orb'}); }
 }
 function trackObjects(list){
   const now = clk;
@@ -937,7 +952,7 @@ function trackObjects(list){
     if (stage > t.stage){ t.bigAt = now; chips(o, 6, col); FX.rings.push({x:o.x, y:o.y, r:o.r*1.5, color:'#FFFFFF', t:0, T:0.25}); }
     Object.assign(t, {x:o.x, y:o.y, type:o.type, low: o.hp/o.maxHp < 0.45, seen:now, col, hp:o.hp, stage, r:o.r});
   }
-  for (const [id, t] of objTrack){ if (t.seen !== now){ objTrack.delete(id); if (t.low && OBJ_POPS.length < 30) OBJ_POPS.push({...t, t:0, T:0.6}); } }
+  for (const [id, t] of objTrack){ if (t.seen !== now){ objTrack.delete(id); if (t.low && t.type !== 'orb' && OBJ_POPS.length < 30) OBJ_POPS.push({...t, t:0, T:0.6}); } }
 }
 function drawChips(c){
   for (const p of CHIPS){
@@ -951,8 +966,17 @@ function stepChips(dt){
   for (const p of CHIPS){ p.t += dt; p.x += p.vx*dt; p.y += p.vy*dt; p.vz -= 700*dt; p.z = Math.max(0, p.z + p.vz*dt); if (p.z === 0){ p.vx *= 0.8; p.vy *= 0.8; p.vz = Math.abs(p.vz) > 60 ? -p.vz*0.35 : 0; } p.rot += p.vr*dt; }
   for (let i = CHIPS.length - 1; i >= 0; i--) if (CHIPS[i].t >= CHIPS[i].T) CHIPS.splice(i, 1);
 }
+function drawOrbPop(c, p){   // the orb bursts: a pink flash ring and droplets flying out
+  const u = p.t/p.T;
+  c.globalAlpha = 1 - u; c.lineWidth = 3*(1 - u) + 1; c.strokeStyle = '#FF2D87'; c.beginPath(); c.arc(p.x, p.y - 4, 10 + 26*u, 0, Math.PI*2); c.stroke();
+  c.lineWidth = 1.5; c.strokeStyle = INK; c.fillStyle = '#FF2D87';
+  for (let k=0;k<7;k++){ const a = k*Math.PI*2/7 + 0.3, d = 8 + 38*u, x = p.x + Math.cos(a)*d, y = p.y - 4 + Math.sin(a)*d*0.75 - 22*u + 40*u*u, rr2 = (k % 2 ? 4.5 : 3.2)*(1 - u*0.5);
+    c.beginPath(); c.arc(x, y, rr2, 0, Math.PI*2); c.fill(); c.stroke(); }
+  c.globalAlpha = 1;
+}
 function drawObjPops(c){
   for (const p of OBJ_POPS){
+    if (p.type === 'orb'){ drawOrbPop(c, p); continue; }
     const u = p.t/p.T, piece = p.type === 'triangle' ? '#E9E3FF' : p.type === 'barrel' ? '#FFFFFF' : p.type === 'gold' ? '#FFD21F' : '#AEB7C2';
     c.globalAlpha = 1 - u*u; c.lineWidth = 2; c.strokeStyle = INK; c.fillStyle = piece;
     for (let k=0;k<6;k++){ const a = k*Math.PI/3 + 0.4, d = 14 + 46*u, x = p.x + Math.cos(a)*d, y = p.y - 10 + Math.sin(a)*d*0.8 - 30*u + 50*u*u;
