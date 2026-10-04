@@ -294,13 +294,15 @@ function processNetQueue(s, rt){
 
 /* ---------- sound ---------- */
 const SFX_VOL = {'shot-splat':0.45, 'shot-roller':0.4, 'shot-bomber':0.5, 'shot-liner':0.45, 'shot-sprayer':0.35, splash:0.45, hit:0.6, splatted:0.8, kill:0.6, levelup:0.5, end:0.45};
-const audio = {ctx:null, out:null, bufs:{}, offs:{}, last:{}, voices:0, muted:false};
+const audio = {ctx:null, out:null, bufs:{}, offs:{}, norm:{}, last:{}, voices:0, muted:false};
 try { audio.muted = localStorage.getItem('splatter-muted') === '1'; } catch(e) {}
 function unlockAudio(){
   if (audio.ctx){ if (audio.ctx.state === 'suspended') audio.ctx.resume(); return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-  audio.ctx = new AC(); audio.out = audio.ctx.createGain(); audio.out.gain.value = audio.muted ? 0 : 1; audio.out.connect(audio.ctx.destination);
-  for (const n of Object.keys(SFX_VOL)) fetch('/sounds/' + n + '.mp3').then(r => r.arrayBuffer()).then(b => audio.ctx.decodeAudioData(b)).then(buf => { audio.bufs[n] = buf; audio.offs[n] = leadIn(buf); }).catch(() => {});
+  audio.ctx = new AC(); audio.out = audio.ctx.createGain(); audio.out.gain.value = audio.muted ? 0 : 1;
+  const soft = audio.ctx.createBiquadFilter(); soft.type = 'lowpass'; soft.frequency.value = 3200; soft.Q.value = 0.5;   // trims thin, whiny highs
+  audio.out.connect(soft); soft.connect(audio.ctx.destination);
+  for (const n of Object.keys(SFX_VOL)) fetch('/sounds/' + n + '.mp3').then(r => r.arrayBuffer()).then(b => audio.ctx.decodeAudioData(b)).then(buf => { audio.bufs[n] = buf; audio.offs[n] = leadIn(buf); audio.norm[n] = clamp(0.9/peakOf(buf), 0.5, 3); }).catch(() => {});
 }
 for (const ev of ['pointerdown','keydown','touchend']) window.addEventListener(ev, unlockAudio, {passive:true});
 function setMuted(m){
@@ -308,6 +310,7 @@ function setMuted(m){
   $('soundBtn').textContent = 'Sound: ' + (m ? 'off' : 'on'); $('soundBtn').setAttribute('aria-pressed', String(!m));
 }
 // Seconds of near-silence before the clip starts, so every pop lands on the frame it was triggered
+function peakOf(buf){ const d = buf.getChannelData(0); let m = 0.01; for (let i=0;i<d.length;i++) m = Math.max(m, Math.abs(d[i])); return m; }
 function leadIn(buf){ const d = buf.getChannelData(0); for (let i=0;i<d.length;i++) if (Math.abs(d[i]) > 0.03) return Math.max(0, i/buf.sampleRate - 0.004); return 0; }
 // x/y place the sound in the world: quieter with distance, panned left/right; mine plays louder and is never throttled
 function sfx(name, x, y, mine){
@@ -323,7 +326,7 @@ function sfx(name, x, y, mine){
   if (!mine && (now - (audio.last[name] || 0) < 0.04 || audio.voices >= 12)) return;
   audio.last[name] = now;
   const src = ac.createBufferSource(), g = ac.createGain();
-  src.buffer = buf; src.playbackRate.value = rand(0.93, 1.07); g.gain.value = vol; src.connect(g);
+  src.buffer = buf; src.playbackRate.value = rand(0.9, 1.0); g.gain.value = vol*(audio.norm[name] || 1); src.connect(g);
   if (ac.createStereoPanner){ const p = ac.createStereoPanner(); p.pan.value = pan; g.connect(p); p.connect(audio.out); } else g.connect(audio.out);
   audio.voices++; src.onended = () => audio.voices--; src.start(0, audio.offs[name] || 0);
 }
