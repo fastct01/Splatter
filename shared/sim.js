@@ -1,7 +1,7 @@
 // Bubble Arena shared simulation: runs on the server (authoritative) and in the browser (practice mode).
 // No DOM, no Node APIs.
 
-export const WW = 4320, WH = 2592, CELL = 12, GW = 360, GH = 216, MATCH = 180, MAX_PLAYERS = 15;
+export const WW = 4320, WH = 2592, CELL = 12, GW = 360, GH = 216, MATCH = 600, MAX_PLAYERS = 15;
 export const PCOL = ['#E4E2DD','#FF2D87','#FF3B3B','#FF8A1F','#FFB020','#FFD21F','#9BE22D','#2DBE5A','#5EE6B0','#1FD6D0','#4FC3FF','#2D8CFF','#4B5BFF','#9B5CFF','#E040FB','#A0622D'];
 export const PNAME = ['','Pink','Red','Orange','Amber','Yellow','Lime','Green','Mint','Aqua','Sky','Blue','Indigo','Purple','Magenta','Cocoa'];
 export const TCOL = [null,'#2D8CFF','#FF8A1F','#FFD21F'];
@@ -9,7 +9,7 @@ export const TNAME = ['','Blue','Orange','Yellow'];
 export const CLASSES = {
   rookie:    {label:'Rookie', r:28, mass:1.0, hp:100, rate:1, speed:490, range:480, dmg:10, ink:3, splat:40, br:7, desc:'Starter with a basic paint pistol', tag:'', spec:'', specLong:'',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, rate:3, speed:525, range:520, dmg:12, ink:3, splat:42, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
+  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, refill:1.2, rate:3, speed:525, range:520, dmg:12, ink:3, splat:42, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
   roller:    {label:'Roller', r:34, mass:1.4, hp:120, rate:2, speed:525, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by walking', tag:'Paints as it walks', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
                ups:[['trail','Roller width'],['ram','Ram damage'],['scd','Charge reload'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
