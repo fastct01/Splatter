@@ -17,7 +17,7 @@ export const CLASSES = {
                ups:[['blast','Blast radius'],['dmg','Bomb damage'],['rate','Reload'],['range','Throw range'],['ink','Ink tank'],['hp','Health']]},
   sprayer:   {label:'Sprayer', r:30, mass:1.0, hp:100, rate:2, speed:450, range:340, dmg:7, ink:8, splat:30, br:7, spread:5, desc:'Spray gun: a 5-shot spread in front', tag:'5-shot spread', spec:'Spin', specLong:'Special: 3 s of spinning spray',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  liner:     {label:'Liner', r:28, mass:0.9, hp:90, rate:0.91, speed:1125, range:990, dmg:30, ink:8, tank:100, refill:2, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', tag:'Long-range lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
+  liner:     {label:'Liner', r:28, mass:0.9, hp:90, rate:1, speed:1125, range:1100, dmg:24, kick:30, ink:8, tank:100, refill:2, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', tag:'Long-range lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
                ups:[['dmg','Shot damage'],['range','Range'],['line','Line width'],['rate','Reload'],['ink','Ink tank'],['speed','Move speed']]}
 };
 export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner','rookie'];   // network order: only append
@@ -378,7 +378,7 @@ export function createSim(opts){
     }
     if (C.spread){ for (let k=0;k<C.spread;k++) spawnBullet(t, t.aim + (k - (C.spread-1)/2)*0.18, C, dm, rm); const J = 6/C.mass; t.vx -= ca*J; t.vy -= sa*J; return; }
     spawnBullet(t, t.aim, C, dm, rm);
-    const J = C.dmg/100*C.speed/0.75*0.15/C.mass; t.vx -= ca*J; t.vy -= sa*J;
+    const J = (C.kick || C.dmg)/100*C.speed/0.75*0.15/C.mass; t.vx -= ca*J; t.vy -= sa*J;
   }
   function spawnBullet(t, a, C, dm, rm){
     const ca = Math.cos(a), sa = Math.sin(a), m = t.r*1.4;
