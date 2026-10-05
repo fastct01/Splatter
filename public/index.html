@@ -479,7 +479,7 @@ let clk = 0, frameDt = 1/60;
 const GUN_OF = {rookie:'pistol', splat:'blaster', roller:'roller', bomber:'launcher', sprayer:'sprayer', liner:'sniper'};
 const SPR_UNIT = 1.4;    // world units per sprite unit
 const SPR_PX = 2.4;      // image pixels per sprite unit
-const SPR_FEET = 20;     // feet sit this far below the collision centre
+const SPR_FEET = S.FEET;  // feet sit this far below the collision centre (the sim's hurtbox is fitted to this sprite)
 const WALL = 22;         // obstacle height
 const DIRS = ['E','SE','S','SW','W','NW','N','NE'];
 const MIRROR = {SW:'SE', W:'E', NW:'NE'};
@@ -909,7 +909,7 @@ function drawBullets(c, list, oc, x0, y0, x1, y1){
     const mx = b.x - tr.x, my = b.y - tr.y; if (mx*mx + my*my > 0.5){ tr.dx = mx; tr.dy = my; }
     tr.x = b.x; tr.y = b.y; tr.seen = now; tr.col = oc(b.po); tr.r = b.r;
     if (b.x < x0-60 || b.x > x1+60 || b.y < y0-60 || b.y > y1+40) continue;
-    const l = Math.hypot(tr.dx, tr.dy) || 1, ux = tr.dx/l, uy = tr.dy/l, col = tr.col, hy = b.y - 16;
+    const l = Math.hypot(tr.dx, tr.dy) || 1, ux = tr.dx/l, uy = tr.dy/l, col = tr.col, hy = b.y - S.SHOT_H;
     c.fillStyle = 'rgba(35,42,53,0.14)'; c.beginPath(); c.ellipse(b.x, b.y, b.r*0.9, b.r*0.38, 0, 0, Math.PI*2); c.fill();
     if (b.line){   // Liner: a chain of bubbles growing towards the tip, over a faint paint line
       c.globalAlpha = 0.35; c.strokeStyle = col; c.lineWidth = 4; c.lineCap = 'round'; c.beginPath(); c.moveTo(b.x - ux*64, hy - uy*64); c.lineTo(b.x, hy); c.stroke(); c.lineCap = 'butt'; c.globalAlpha = 1;
@@ -920,7 +920,7 @@ function drawBullets(c, list, oc, x0, y0, x1, y1){
     soapBubble(c, b.x, hy, b.r*1.15, col);
   }
   // bubbles that disappeared this frame pop where they were last seen
-  for (const [id, tr] of bulletTrack){ if (tr.seen !== now){ bulletTrack.delete(id); if (POPS.length < 80) POPS.push({x:tr.x, y:tr.y - 16, col:tr.col, r:tr.r, t:0, T:0.28}); } }
+  for (const [id, tr] of bulletTrack){ if (tr.seen !== now){ bulletTrack.delete(id); if (POPS.length < 80) POPS.push({x:tr.x, y:tr.y - S.SHOT_H, col:tr.col, r:tr.r, t:0, T:0.28}); } }
 }
 function drawPops(c){
   for (const p of POPS){

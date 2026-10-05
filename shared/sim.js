@@ -36,6 +36,11 @@ export const BUMP_DMG = {can:3, gold:3, triangle:12, barrel:22}, BUMP_CD = 0.6, 
 export const ROLLER_RAM = 1/3, RAM_PER_UP = 0.05;
 const ramMul = t => t.cls === 'roller' ? ROLLER_RAM*(t.specialT > 0 ? 2 : 1)*(1 + RAM_PER_UP*up(t, 'ram')) : 1;
 export const OBJ_TARGET = 60;   // floating objects kept on the (bigger) map
+// Hurtbox: players are drawn as 2.5D sprites standing FEET below (t.x, t.y), about 48 wide and 100 tall, the same size for
+// every class. Shots and blasts hit the drawn body: a capsule from BODY_TOP above to BODY_BOT below (t.x, t.y), radius BODY_R.
+// Bullets are drawn SHOT_H above their shadow (b.x, b.y), at BUBBLE_VIS times their radius. The class r stays the footprint
+// for bumping into players, objects and walls.
+export const FEET = 20, SHOT_H = 16, BODY_TOP = 54, BODY_BOT = 2, BODY_R = 24, BUBBLE_VIS = 1.25;
 export function randomObjectType(objects){
   const have = {}; for (const o of objects || []) have[o.type] = (have[o.type] || 0) + 1;
   const need = {}; let sum = 0;
@@ -493,6 +498,15 @@ export function createSim(opts){
     let u = l ? ((px-ax)*dx + (py-ay)*dy)/l : 0; u = u < 0 ? 0 : u > 1 ? 1 : u;
     const x = ax + u*dx - px, y = ay + u*dy - py; return x*x + y*y;
   }
+  // squared distance between segments ab and cd (0 when they cross)
+  const cross = (ox, oy, px, py, qx, qy) => (px-ox)*(qy-oy) - (py-oy)*(qx-ox);
+  function segSeg2(ax, ay, bx, by, cx, cy, dx, dy){
+    if ((cross(cx,cy,dx,dy,ax,ay) > 0) !== (cross(cx,cy,dx,dy,bx,by) > 0) && (cross(ax,ay,bx,by,cx,cy) > 0) !== (cross(ax,ay,bx,by,dx,dy) > 0)) return 0;
+    return Math.min(segDist2(ax,ay,bx,by,cx,cy), segDist2(ax,ay,bx,by,dx,dy), segDist2(cx,cy,dx,dy,ax,ay), segDist2(cx,cy,dx,dy,bx,by));
+  }
+  // distance from a point on the floor to the core of a player's drawn body, and whether a bullet's move this step touched it
+  const bodyDist = (t, x, y) => Math.sqrt(segDist2(t.x, t.y - BODY_TOP, t.x, t.y + BODY_BOT, x, y));
+  const shotHits = (b, t) => { const rr = BODY_R + b.r*BUBBLE_VIS; return segSeg2(b.px, b.py - SHOT_H, b.x, b.y - SHOT_H, t.x, t.y - BODY_TOP, t.x, t.y + BODY_BOT) < rr*rr; };
   function damageObj(o, amt, src, dx, dy){
     if (o.dead) return;
     o.hp -= amt; o.flash = 0.06;
@@ -505,8 +519,8 @@ export function createSim(opts){
     const owner = src ? paintOwner(src) : 0;
     if (src){ addPoints(src, d.pts); stamp(o.x, o.y, d.splat, owner, src); }
     onEvent({k:'ring', x:o.x, y:o.y, r:d.splat, o:owner, t:o.type});
-    if (o.type === 'barrel'){
-      for (const t of G.tanks){ if (t.dead) continue; const dd = Math.hypot(t.x-o.x, t.y-o.y); if (dd < 100 + t.r){ const k = Math.max(0, 1 - dd/(100+t.r)); damage(t, 15, t === src ? null : src); const nx = (t.x-o.x)/(dd||1), ny = (t.y-o.y)/(dd||1); t.vx += nx*300*k/CLASSES[t.cls].mass; t.vy += ny*300*k/CLASSES[t.cls].mass; } }
+    if (o.type === 'barrel'){   // hurts everyone nearby, but only enemies of the breaker count as their hit
+      for (const t of G.tanks){ if (t.dead) continue; const d = bodyDist(t, o.x, o.y); if (d < 100 + BODY_R){ const k = Math.max(0, 1 - d/(100+BODY_R)), dd = Math.hypot(t.x-o.x, t.y-o.y) || 1; damage(t, 15, src && isEnemy(src, t) ? src : null); if (t.protect <= 0){ t.vx += (t.x-o.x)/dd*300*k/CLASSES[t.cls].mass; t.vy += (t.y-o.y)/dd*300*k/CLASSES[t.cls].mass; } } }
     }
     if (o.type === 'gold' && src){ src.ink = src.icap; if (src.human) onEvent({k:'toast', id:src.id, text:'Gold bucket: ink full'}); }
   }
@@ -519,12 +533,10 @@ export function createSim(opts){
       const step = Math.hypot(b.vx, b.vy)*dt; b.dist += step; b.drop += step;
       if (b.line){ while (b.drop >= 10){ b.drop -= 10; const f = 1 - b.drop/step; stamp(b.px + (b.x-b.px)*f, b.py + (b.y-b.py)*f, b.lineR, b.po, b.owner); } }
       else if (b.drop >= 130){ b.drop -= 130; stamp(b.x, b.y, 7, b.po, b.owner); }
-      if (b.x < 0 || b.y < 0 || b.x > WW || b.y > WH){ b.dead = true; stamp(clamp(b.x,14,WW-14), clamp(b.y,14,WH-14), 26, b.po, b.owner); continue; }
-      if (inObstacle(b.x, b.y, 0)){ b.dead = true; const a = Math.atan2(b.vy,b.vx); stamp(b.px - Math.cos(a)*8, b.py - Math.sin(a)*8, 26, b.po, b.owner); continue; }
+      // players and objects first: a step that reaches a wall or the map edge may still have hit someone on the way
       for (const t of G.tanks){
         if (t.dead || !isEnemy(b.owner, t)) continue;
-        const rr = t.r + b.r;
-        if (segDist2(b.px, b.py, b.x, b.y, t.x, t.y) < rr*rr){
+        if (shotHits(b, t)){
           b.dead = true;
           const sp = Math.hypot(b.vx,b.vy) || 1, m = CLASSES[t.cls].mass;
           if (t.protect <= 0){ t.vx += b.vx/sp*40/m; t.vy += b.vy/sp*40/m; }
@@ -541,6 +553,8 @@ export function createSim(opts){
         if (segDist2(b.px, b.py, b.x, b.y, o.x, o.y) < rr*rr){ b.dead = true; const sp = Math.hypot(b.vx,b.vy) || 1; damageObj(o, b.dmg, b.owner, b.vx/sp, b.vy/sp); break; }
       }
       if (b.dead) continue;
+      if (b.x < 0 || b.y < 0 || b.x > WW || b.y > WH){ b.dead = true; stamp(clamp(b.x,14,WW-14), clamp(b.y,14,WH-14), 26, b.po, b.owner); continue; }
+      if (inObstacle(b.x, b.y, 0)){ b.dead = true; const a = Math.atan2(b.vy,b.vx); stamp(b.px - Math.cos(a)*8, b.py - Math.sin(a)*8, 26, b.po, b.owner); continue; }
       if (b.dist >= b.range){ b.dead = true; stamp(b.x, b.y, b.splat, b.po, b.owner); }
     }
     for (let i=0;i<B.length;i++){
@@ -562,8 +576,8 @@ export function createSim(opts){
       const x = b.x1, y = b.y1;
       for (const t of G.tanks){
         if (t.dead || !isEnemy(b.owner, t)) continue;
-        const d = Math.hypot(t.x-x, t.y-y);
-        if (d < b.R + t.r*0.5){ const k = Math.max(0, 1 - d/b.R); damage(t, b.dmg*Math.max(k,0.15), b.owner); if (t.protect <= 0){ const m = CLASSES[t.cls].mass; t.vx += (t.x-x)/(d||1)*450*k/m; t.vy += (t.y-y)/(d||1)*450*k/m; } }
+        const d = bodyDist(t, x, y), dd = Math.hypot(t.x-x, t.y-y) || 1;   // the blast must reach the drawn body
+        if (d < b.R + BODY_R){ const k = Math.max(0, 1 - d/b.R); damage(t, b.dmg*Math.max(k,0.15), b.owner); if (t.protect <= 0){ const m = CLASSES[t.cls].mass; t.vx += (t.x-x)/dd*450*k/m; t.vy += (t.y-y)/dd*450*k/m; } }
       }
       for (const o of G.objects){ if (o.dead) continue; const d = Math.hypot(o.x-x, o.y-y); if (d < b.R + o.r*0.5){ const k = Math.max(0.15, 1 - d/b.R); damageObj(o, b.dmg*k, b.owner, (o.x-x)/(d||1)*3, (o.y-y)/(d||1)*3); } }
       stamp(x, y, b.R, b.po, b.owner);
