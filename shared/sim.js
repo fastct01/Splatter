@@ -9,7 +9,7 @@ export const TNAME = ['','Blue','Orange','Yellow'];
 export const CLASSES = {
   rookie:    {label:'Rookie', r:28, mass:1.0, hp:100, rate:1, speed:490, range:480, dmg:10, ink:3, splat:40, br:7, desc:'Starter with a basic paint pistol', tag:'', spec:'', specLong:'',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, refill:1.2, flatRefill:true, rate:3, speed:525, range:520, dmg:12, ink:3, splat:42, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
+  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, refill:1.2, flatRefill:true, rate:3, speed:525, range:520, dmg:12, ink:3, splat:50, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
   roller:    {label:'Roller', r:34, mass:1.4, move:0.9, hp:120, rate:2, speed:525, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by walking', tag:'Paints as it walks', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
                ups:[['trail','Roller width'],['ram','Ram damage'],['scd','Charge reload'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
@@ -383,8 +383,9 @@ export function createSim(opts){
   function spawnBullet(t, a, C, dm, rm){
     const ca = Math.cos(a), sa = Math.sin(a), m = t.r*1.4;
     const x = t.x + ca*m, y = t.y + sa*m;
+    // sk: Blaster bullets leave 20% bigger impact splashes (walls, edges, hits); their range splash comes from C.splat
     G.bullets.push({id:nextB++, x, y, px:x, py:y, vx:ca*C.speed + t.vx*0.3, vy:sa*C.speed + t.vy*0.3, r:C.br, dmg:C.dmg*dm, hp:C.dmg*dm,
-      owner:t, po:paintOwner(t), dist:0, range:C.range*rm, splat:C.splat, line:!!C.line, lineR:11*(1 + 0.12*up(t, 'line')), drop:0, dead:false});
+      owner:t, po:paintOwner(t), dist:0, range:C.range*rm, splat:C.splat, sk:t.cls === 'splat' ? 1.2 : 1, line:!!C.line, lineR:11*(1 + 0.12*up(t, 'line')), drop:0, dead:false});
   }
   function special(t){
     if (t.specialCd > 0 || t.cls === 'rookie') return;
@@ -542,7 +543,7 @@ export function createSim(opts){
           b.dead = true;
           const sp = Math.hypot(b.vx,b.vy) || 1, m = CLASSES[t.cls].mass;
           if (t.protect <= 0){ t.vx += b.vx/sp*40/m; t.vy += b.vy/sp*40/m; }
-          stamp(t.x, t.y, 18, b.po, b.owner);
+          stamp(t.x, t.y, 18*b.sk, b.po, b.owner);
           if (t.protect <= 0){ if (b.owner.human) onEvent({k:'hit', by:b.owner.id, x:b.x, y:b.y}); }
           damage(t, b.dmg, b.owner);
           break;
@@ -555,8 +556,8 @@ export function createSim(opts){
         if (segDist2(b.px, b.py - SHOT_H, b.x, b.y - SHOT_H, o.x, o.y) < rr*rr){ b.dead = true; const sp = Math.hypot(b.vx,b.vy) || 1; damageObj(o, b.dmg, b.owner, b.vx/sp, b.vy/sp); break; }
       }
       if (b.dead) continue;
-      if (b.x < 0 || b.y < 0 || b.x > WW || b.y > WH){ b.dead = true; stamp(clamp(b.x,14,WW-14), clamp(b.y,14,WH-14), 26, b.po, b.owner); continue; }
-      if (inObstacle(b.x, b.y, 0)){ b.dead = true; const a = Math.atan2(b.vy,b.vx); stamp(b.px - Math.cos(a)*8, b.py - Math.sin(a)*8, 26, b.po, b.owner); continue; }
+      if (b.x < 0 || b.y < 0 || b.x > WW || b.y > WH){ b.dead = true; stamp(clamp(b.x,14,WW-14), clamp(b.y,14,WH-14), 26*b.sk, b.po, b.owner); continue; }
+      if (inObstacle(b.x, b.y, 0)){ b.dead = true; const a = Math.atan2(b.vy,b.vx); stamp(b.px - Math.cos(a)*8, b.py - Math.sin(a)*8, 26*b.sk, b.po, b.owner); continue; }
       if (b.dist >= b.range){ b.dead = true; stamp(b.x, b.y, b.splat, b.po, b.owner); }
     }
     for (let i=0;i<B.length;i++){
