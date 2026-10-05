@@ -13,7 +13,7 @@ export const CLASSES = {
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
   roller:    {label:'Roller', r:34, mass:1.4, hp:120, rate:2, speed:525, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by walking', tag:'Paints as it walks', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
                ups:[['trail','Roller width'],['ram','Ram damage'],['scd','Charge reload'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  bomber:    {label:'Bomber', r:32, mass:1.2, hp:100, rate:0.8, speed:675, range:470, dmg:35, ink:6, splat:110, br:12, bomb:true, desc:'Lobs ink bombs that burst into big splashes', tag:'Big splash bombs', spec:'Cluster', specLong:'Special: next bomb splits into 4',
+  bomber:    {label:'Bomber', r:32, mass:1.2, hp:100, rate:0.8, speed:675, range:376, dmg:35, ink:6, splat:110, br:12, bomb:true, desc:'Lobs ink bombs that burst into big splashes', tag:'Big splash bombs', spec:'Cluster', specLong:'Special: next bomb splits into 4',
                ups:[['blast','Blast radius'],['dmg','Bomb damage'],['rate','Reload'],['range','Throw range'],['ink','Ink tank'],['hp','Health']]},
   sprayer:   {label:'Sprayer', r:30, mass:1.0, hp:100, rate:2, speed:450, range:340, dmg:7, ink:8, splat:30, br:7, spread:5, desc:'Spray gun: a 5-shot spread in front', tag:'5-shot spread', spec:'Spin', specLong:'Special: 3 s of spinning spray',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
@@ -24,7 +24,7 @@ export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner','rookie']
 export const CLASS_KEYS = ['splat','roller','bomber','liner'];   // classes a Rookie can transform into
 export const CLASS_AT = 5;                                       // upgrades bought before the class menu opens
 export const OBJ_TYPES = ['can','barrel','gold','triangle','orb'];
-export const OBJ = {can:{hp:18,mass:2,pts:1,r:22,splat:50}, barrel:{hp:110,mass:6,pts:6,r:30,splat:120}, gold:{hp:200,mass:4,pts:20,r:26,splat:160}, triangle:{hp:75,mass:3,pts:5,r:26,splat:75}, orb:{hp:8,mass:1,pts:1,r:15,splat:34}};
+export const OBJ = {can:{hp:18,mass:2,pts:1,r:22,splat:50}, barrel:{hp:110,mass:6,pts:4,r:30,splat:120}, gold:{hp:200,mass:4,pts:20,r:26,splat:160}, triangle:{hp:75,mass:3,pts:3,r:26,splat:75}, orb:{hp:8,mass:1,pts:1,r:15,splat:34}};
 // Share of the floating objects on the map (out of 100): pink orbs are the most common, prisms the rarest.
 // New objects fill whichever type is furthest below its share, so the mix stays the same even though orbs and tins break fastest.
 // The gold tin comes on its own timer.
