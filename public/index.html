@@ -299,38 +299,56 @@ function processNetQueue(s, rt){
 // name: [volume, number of takes]. Shots rotate between takes so rapid fire never repeats the exact same clip
 const SFX = {'shot-splat':[0.36,3], 'shot-roller':[0.32,2], 'shot-bomber':[0.38,2], 'shot-liner':[0.3,2], 'shot-sprayer':[0.26,2],
   splash:[0.3,1], hit:[0.4,2], splatted:[0.6,1], kill:[0.45,1], levelup:[0.42,1], upgrade:[0.45,2], end:[0.35,1]};
-const audio = {ctx:null, out:null, bufs:{}, last:{}, turn:{}, voices:0, otherShotAt:0, muted:false};
+// 3D placement in world pixels: world x → audio x, world y → audio z, the listener hangs LH above the camera facing screen-up.
+// Full level within REF, then 1/distance fall-off; others' sounds also fade to nothing between FADE and FAR (just past the screen edge to about two screens away).
+const AUD = {REF:400, ROLL:1, LH:240, FADE:1000, FAR:1700, MASTER:0.23};
+const audio = {ctx:null, out:null, bus:null, verb:null, p3d:false, bufs:{}, last:{}, turn:{}, voices:0, otherShotAt:0, muted:false};
 try { audio.muted = localStorage.getItem('splatter-muted') === '1'; } catch(e) {}
+// voices → bus → soft low-pass → compressor (nothing clips when sounds pile up) → out (master volume / mute) → speakers; a quiet room reverb feeds the bus
 function unlockAudio(){
   if (audio.ctx){ if (audio.ctx.state === 'suspended') audio.ctx.resume(); return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-  audio.ctx = new AC(); audio.out = audio.ctx.createGain(); audio.out.gain.value = audio.muted ? 0 : 0.85;
-  const soft = audio.ctx.createBiquadFilter(); soft.type = 'lowpass'; soft.frequency.value = 3000; soft.Q.value = 0.4;   // trims thin, whiny highs
-  audio.out.connect(soft); soft.connect(audio.ctx.destination);
+  const ac = audio.ctx = new AC(); audio.out = ac.createGain(); audio.out.gain.value = audio.muted ? 0 : AUD.MASTER; audio.bus = ac.createGain();
+  const soft = ac.createBiquadFilter(); soft.type = 'lowpass'; soft.frequency.value = 3000; soft.Q.value = 0.4;   // trims thin, whiny highs
+  const comp = ac.createDynamicsCompressor(); comp.threshold.value = -10; comp.knee.value = 6; comp.ratio.value = 8; comp.attack.value = 0.002; comp.release.value = 0.2;
+  audio.bus.connect(soft); soft.connect(comp); comp.connect(audio.out); audio.out.connect(ac.destination);
+  try { audio.verb = ac.createConvolver(); audio.verb.buffer = roomIR(ac); const wet = ac.createGain(); wet.gain.value = 2; audio.verb.connect(wet); wet.connect(audio.bus); } catch(e) { audio.verb = null; }
+  audio.p3d = !!ac.createPanner; listen();
   for (const n in SFX) for (let k=1;k<=SFX[n][1];k++)
     fetch('/sounds/' + n + (k > 1 ? '-' + k : '') + '.mp3').then(r => r.arrayBuffer()).then(b => audio.ctx.decodeAudioData(b))
       .then(buf => { (audio.bufs[n] = audio.bufs[n] || []).push({buf, off:leadIn(buf), norm:clamp(0.9/peakOf(buf), 0.5, 3)}); }).catch(() => {});
 }
 for (const ev of ['pointerdown','keydown','touchend']) window.addEventListener(ev, unlockAudio, {passive:true});
 function setMuted(m){
-  audio.muted = m; if (audio.out) audio.out.gain.value = m ? 0 : 0.85; try { localStorage.setItem('splatter-muted', m ? '1' : '0'); } catch(e) {}
+  audio.muted = m; if (audio.out) audio.out.gain.value = m ? 0 : AUD.MASTER; try { localStorage.setItem('splatter-muted', m ? '1' : '0'); } catch(e) {}
   $('soundBtn').textContent = 'Sound: ' + (m ? 'off' : 'on'); $('soundBtn').setAttribute('aria-pressed', String(!m));
+}
+// Small soft room: 0.6 s of stereo noise after a short gap, decaying fast and getting darker as it fades
+function roomIR(ac){
+  const sr = ac.sampleRate, n = Math.floor(sr*0.6), b = ac.createBuffer(2, n, sr);
+  for (let c=0;c<2;c++){ const d = b.getChannelData(c); let lp = 0; for (let i=Math.floor(sr*0.012);i<n;i++){ const t = i/n; lp += (Math.random()*2 - 1 - lp)*(0.6 - 0.5*t); d[i] = lp*Math.pow(1 - t, 4); } }
+  return b;
+}
+// The listener follows the camera (called every frame); its default orientation already faces -z (screen-up) with +y up
+function listen(){
+  const L = audio.ctx && audio.p3d ? audio.ctx.listener : null; if (!L) return;
+  if (L.positionX){ L.positionX.value = cam.x; L.positionY.value = AUD.LH; L.positionZ.value = cam.y; } else L.setPosition(cam.x, AUD.LH, cam.y);
 }
 function peakOf(buf){ const d = buf.getChannelData(0); let m = 0.01; for (let i=0;i<d.length;i++) m = Math.max(m, Math.abs(d[i])); return m; }
 // Seconds of near-silence before the clip starts, so every pop lands on the frame it was triggered
 function leadIn(buf){ const d = buf.getChannelData(0); for (let i=0;i<d.length;i++) if (Math.abs(d[i]) > 0.03) return Math.max(0, i/buf.sampleRate - 0.004); return 0; }
-// x/y place the sound in the world: quieter and more muffled with distance, panned left/right; mine is louder and never skipped.
+// x/y place the sound in the world through a 3D panner: quieter, more muffled and roomier with distance. Mine plays centred and nearly dry, and is never skipped.
 // Identical clips fired many times a second blur into a buzz, so other players' shots share one irregular budget
 // (about 7 a second), quick repeats get quieter, and shots have their tails cut short.
 function sfx(name, x, y, mine){
   const ac = audio.ctx, takes = audio.bufs[name];
   if (!ac || !takes || audio.muted || ac.state !== 'running' || !session || session.kind === 'demo') return;
-  const now = ac.currentTime, shot = name.startsWith('shot-');
-  let vol = SFX[name][0], pan = 0, muffle = 3000;
-  if (x !== undefined && !mine){
-    const dx = x - cam.x, dist = Math.hypot(dx, y - cam.y);
-    vol *= 0.5*clamp(1 - (dist - 250)/1000, 0, 1); if (vol < 0.02) return;
-    pan = clamp(dx/900, -0.7, 0.7); muffle = clamp(3000 - dist*1.6, 800, 3000);
+  const now = ac.currentTime, shot = name.startsWith('shot-'), at = x !== undefined && !mine;
+  let vol = SFX[name][0], muffle = 3000, dg = 1;
+  if (at){
+    const dist = Math.hypot(x - cam.x, y - cam.y); dg = AUD.REF/(AUD.REF + AUD.ROLL*Math.max(0, Math.hypot(dist, AUD.LH) - AUD.REF));   // what the panner will apply
+    vol *= 0.5*clamp((AUD.FAR - dist)/(AUD.FAR - AUD.FADE), 0, 1); if (vol*dg < 0.01) return;
+    muffle = clamp(3000 - dist*1.6, 800, 3000);
   }
   if (!mine){
     if (shot){ if (now < audio.otherShotAt) return; audio.otherShotAt = now + 0.11 + Math.random()*0.08; }
@@ -343,11 +361,22 @@ function sfx(name, x, y, mine){
   const src = ac.createBufferSource(), g = ac.createGain(), lp = ac.createBiquadFilter();
   src.buffer = t.buf; src.playbackRate.value = rand(0.86, 1.0);
   lp.type = 'lowpass'; lp.frequency.value = muffle; lp.Q.value = 0.4;
-  const v = vol*t.norm*rand(0.8, 1), len = shot ? 0.18 : t.buf.duration;
+  const v = vol*t.norm*rand(0.8, 1)*(at && !audio.p3d ? dg : 1), len = shot ? 0.18 : t.buf.duration;
   g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(v, now + 0.002);
   if (shot){ g.gain.setValueAtTime(v, now + len*0.5); g.gain.linearRampToValueAtTime(0, now + len); }
   src.connect(lp); lp.connect(g);
-  if (ac.createStereoPanner){ const p = ac.createStereoPanner(); p.pan.value = pan; g.connect(p); p.connect(audio.out); } else g.connect(audio.out);
+  let o = g, hr = false;   // own and global sounds stay centred: no panner
+  if (at && audio.p3d){
+    const p = ac.createPanner(); try { p.panningModel = 'HRTF'; } catch(e) {} hr = p.panningModel === 'HRTF';
+    p.distanceModel = 'inverse'; p.refDistance = AUD.REF; p.rolloffFactor = AUD.ROLL; p.maxDistance = 10000;
+    if (p.positionX){ p.positionX.value = x; p.positionY.value = 0; p.positionZ.value = y; } else p.setPosition(x, 0, y);
+    o.connect(p); o = p;
+  }
+  // HRTF alone is subtle on speakers, so a light extra left/right tilt keeps direction readable (and it is all the panning there is without a PannerNode)
+  if (at && ac.createStereoPanner && (hr || !audio.p3d)){ const sp = ac.createStereoPanner(), dx = x - cam.x; sp.pan.value = hr ? clamp(dx/1600, -0.45, 0.45) : clamp(dx/900, -0.7, 0.7); o.connect(sp); o = sp; }
+  o.connect(audio.bus);
+  // reverb send: far sounds are relatively roomier, own sounds and shots stay fairly dry
+  if (audio.verb){ const r = ac.createGain(); r.gain.value = (at ? 0.4*Math.sqrt(dg) : 0.22)*(shot ? 0.6 : 1); g.connect(r); r.connect(audio.verb); }
   audio.voices++; src.onended = () => audio.voices--; src.start(now, t.off, len + 0.05);
 }
 // Online snapshots carry no shot events: a bullet or bomb id we have not seen, next to a player, is a fresh shot
@@ -1495,6 +1524,7 @@ function frame(now){
     f = s.follow;
   }
   if (f){ const k = Math.min(1, el*(s.kind === 'demo' ? 1.5 : 10)); cam.x += (f.x - cam.x)*k; cam.y += (f.y - cam.y)*k; }
+  listen();
   for (const r of FX.rings) r.t += el; FX.rings = FX.rings.filter(r => r.t < r.T);
   for (const h of FX.hits) h.t += el; FX.hits = FX.hits.filter(h => h.t < h.T);
   stepChips(el);
