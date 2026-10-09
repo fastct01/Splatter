@@ -40,7 +40,9 @@ export const OBJ_TARGET = 60;   // floating objects kept on the (bigger) map
 // every class. Shots and blasts hit the drawn body: a capsule from BODY_TOP above to BODY_BOT below (t.x, t.y), radius BODY_R.
 // Bullets are drawn SHOT_H above their shadow (b.x, b.y), at BUBBLE_VIS times their radius. The class r stays the footprint
 // for bumping into players, objects and walls.
-export const FEET = 20, SHOT_H = 16, BODY_TOP = 54, BODY_BOT = 2, BODY_R = 24, BUBBLE_VIS = 1.25;
+// Walking into walls and floating objects uses the feet: a flat oval around (t.x, t.y + FEET), FOOT_R to each side (as wide as the
+// drawn body) and FOOT_D to the front and back, so you can walk right up to things from any side.
+export const FEET = 20, SHOT_H = 16, BODY_TOP = 54, BODY_BOT = 2, BODY_R = 24, BUBBLE_VIS = 1.25, FOOT_R = 24, FOOT_D = 10;
 export function randomObjectType(objects){
   const have = {}; for (const o of objects || []) have[o.type] = (have[o.type] || 0) + 1;
   const need = {}; let sum = 0;
@@ -549,8 +551,8 @@ export function createSim(opts){
       if (b.dead) continue;
       for (const o of G.objects){
         if (o.dead) continue;
-        const rr = o.r + b.r;
-        if (segDist2(b.px, b.py, b.x, b.y, o.x, o.y) < rr*rr){ b.dead = true; const sp = Math.hypot(b.vx,b.vy) || 1; damageObj(o, b.dmg, b.owner, b.vx/sp, b.vy/sp); break; }
+        const rr = o.r + b.r*BUBBLE_VIS;   // the bubble as drawn, SHOT_H above its shadow
+        if (segDist2(b.px, b.py - SHOT_H, b.x, b.y - SHOT_H, o.x, o.y) < rr*rr){ b.dead = true; const sp = Math.hypot(b.vx,b.vy) || 1; damageObj(o, b.dmg, b.owner, b.vx/sp, b.vy/sp); break; }
       }
       if (b.dead) continue;
       if (b.x < 0 || b.y < 0 || b.x > WW || b.y > WH){ b.dead = true; stamp(clamp(b.x,14,WW-14), clamp(b.y,14,WH-14), 26, b.po, b.owner); continue; }
@@ -598,26 +600,31 @@ export function createSim(opts){
     }
   }
 
-  function resolveCircleRect(e, r, rest){
-    let hx = 0, hy = 0;
+  // sy > 1 squashes the circle into a flat oval (r wide, r/sy deep): resolve in a space stretched by sy along y
+  function resolveCircleRect(e, r, rest, noEdges, sy){
+    sy = sy || 1; let hx = 0, hy = 0;
     for (const o of G.obstacles){
-      const cx = clamp(e.x, o.x, o.x+o.w), cy = clamp(e.y, o.y, o.y+o.h);
-      const dx = e.x - cx, dy = e.y - cy, d2 = dx*dx + dy*dy;
+      const ey = e.y*sy, cx = clamp(e.x, o.x, o.x+o.w), cy = clamp(ey, o.y*sy, (o.y+o.h)*sy);
+      const dx = e.x - cx, dy = ey - cy, d2 = dx*dx + dy*dy;
       if (d2 >= r*r) continue;
       let nx, ny;
       if (d2 === 0){
-        const l = e.x - o.x, rr = o.x + o.w - e.x, tp = e.y - o.y, bt = o.y + o.h - e.y, m = Math.min(l, rr, tp, bt);
-        if (m === l){ nx = -1; ny = 0; e.x = o.x - r; } else if (m === rr){ nx = 1; ny = 0; e.x = o.x + o.w + r; } else if (m === tp){ nx = 0; ny = -1; e.y = o.y - r; } else { nx = 0; ny = 1; e.y = o.y + o.h + r; }
-      } else { const d = Math.sqrt(d2); nx = dx/d; ny = dy/d; e.x = cx + nx*r; e.y = cy + ny*r; }
+        const l = e.x - o.x, rr = o.x + o.w - e.x, tp = (e.y - o.y)*sy, bt = (o.y + o.h - e.y)*sy, m = Math.min(l, rr, tp, bt);
+        if (m === l){ nx = -1; ny = 0; e.x = o.x - r; } else if (m === rr){ nx = 1; ny = 0; e.x = o.x + o.w + r; } else if (m === tp){ nx = 0; ny = -1; e.y = o.y - r/sy; } else { nx = 0; ny = 1; e.y = o.y + o.h + r/sy; }
+      } else { const d = Math.sqrt(d2); nx = dx/d; ny = dy/d; e.x = cx + nx*r; e.y = (cy + ny*r)/sy; }
       const vn = e.vx*nx + e.vy*ny;
       if (vn < 0){ e.vx -= (1 + rest)*vn*nx; e.vy -= (1 + rest)*vn*ny; e.vx *= 0.97; e.vy *= 0.97; }
       hx += nx; hy += ny;
     }
+    if (!noEdges) [hx, hy] = clampEdges(e, r, rest, hx, hy);
+    return hx || hy ? [hx, hy] : null;
+  }
+  function clampEdges(e, r, rest, hx, hy){
     if (e.x < r){ e.x = r; if (e.vx < 0) e.vx = -e.vx*rest; hx += 1; }
     if (e.y < r){ e.y = r; if (e.vy < 0) e.vy = -e.vy*rest; hy += 1; }
     if (e.x > WW - r){ e.x = WW - r; if (e.vx > 0) e.vx = -e.vx*rest; hx -= 1; }
     if (e.y > WH - r){ e.y = WH - r; if (e.vy > 0) e.vy = -e.vy*rest; hy -= 1; }
-    return hx || hy ? [hx, hy] : null;
+    return [hx, hy];
   }
 
   function collide(){
@@ -646,9 +653,9 @@ export function createSim(opts){
       const mt = CLASSES[t.cls].mass;
       for (const o of O){
         if (o.dead) continue;
-        const dx = o.x - t.x, dy = o.y - t.y, rs = t.r + o.r, d2 = dx*dx + dy*dy;
-        if (d2 >= rs*rs || d2 === 0) continue;
-        const d = Math.sqrt(d2), nx = dx/d, ny = dy/d, ov = rs - d, it = 1/mt, io = 1/o.mass;
+        const dx = o.x - t.x, dy = o.y - (t.y + FEET), q = Math.hypot(dx/(FOOT_R + o.r), dy/(FOOT_D + o.r));   // the feet oval bumps into the object
+        if (q >= 1 || q === 0) continue;
+        const d = Math.hypot(dx, dy), rs = d/q, nx = dx/d, ny = dy/d, ov = rs - d, it = 1/mt, io = 1/o.mass;
         t.x -= nx*ov*it/(it+io); t.y -= ny*ov*it/(it+io); o.x += nx*ov*io/(it+io); o.y += ny*ov*io/(it+io);
         const vn = (o.vx - t.vx)*nx + (o.vy - t.vy)*ny;
         if (vn < 0){ const J = -1.5*vn/(it+io); t.vx -= J*it*nx; t.vy -= J*it*ny; o.vx += J*io*nx; o.vy += J*io*ny; }
@@ -670,7 +677,7 @@ export function createSim(opts){
       const vn = (b.vx - a.vx)*nx + (b.vy - a.vy)*ny;
       if (vn < 0){ const J = -1.6*vn/(ia+ib); a.vx -= J*ia*nx; a.vy -= J*ia*ny; b.vx += J*ib*nx; b.vy += J*ib*ny; }
     }
-    for (const t of T) if (!t.dead) resolveCircleRect(t, t.r, 0.2);
+    for (const t of T) if (!t.dead){ t.y += FEET; resolveCircleRect(t, FOOT_R, 0.2, true, FOOT_R/FOOT_D); t.y -= FEET; clampEdges(t, t.r, 0.2, 0, 0); }   // feet against walls, body against the map edge
     for (const o of O){
       if (o.dead) continue;
       const n = resolveCircleRect(o, o.r, 0.85);
