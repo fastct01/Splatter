@@ -11,13 +11,13 @@ export const CLASSES = {
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
   splat:     {label:'Blaster', r:30, mass:1.0, hp:100, refill:1.2, flatRefill:true, rate:3, speed:525, range:520, dmg:12, ink:3, splat:42, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  roller:    {label:'Roller', r:34, mass:1.4, hp:120, rate:2, speed:525, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by walking', tag:'Paints as it walks', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
+  roller:    {label:'Roller', r:34, mass:1.4, move:0.9, hp:120, rate:2, speed:525, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by walking', tag:'Paints as it walks', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
                ups:[['trail','Roller width'],['ram','Ram damage'],['scd','Charge reload'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
   bomber:    {label:'Bomber', r:32, mass:1.2, hp:100, rate:0.8, speed:675, range:376, dmg:35, ink:6, splat:110, br:12, bomb:true, desc:'Lobs ink bombs that burst into big splashes', tag:'Big splash bombs', spec:'Cluster', specLong:'Special: next bomb splits into 4',
                ups:[['blast','Blast radius'],['dmg','Bomb damage'],['rate','Reload'],['range','Throw range'],['ink','Ink tank'],['hp','Health']]},
   sprayer:   {label:'Sprayer', r:30, mass:1.0, hp:100, rate:2, speed:450, range:340, dmg:7, ink:8, splat:30, br:7, spread:5, desc:'Spray gun: a 5-shot spread in front', tag:'5-shot spread', spec:'Spin', specLong:'Special: 3 s of spinning spray',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  liner:     {label:'Liner', r:28, mass:0.9, hp:90, rate:1, speed:1125, range:1100, dmg:30, ink:8, tank:100, refill:2, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', tag:'Long-range lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
+  liner:     {label:'Liner', r:28, mass:0.9, hp:90, rate:0.91, speed:1125, range:990, dmg:30, ink:8, tank:100, refill:2, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', tag:'Long-range lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
                ups:[['dmg','Shot damage'],['range','Range'],['line','Line width'],['rate','Reload'],['ink','Ink tank'],['speed','Move speed']]}
 };
 export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner','rookie'];   // network order: only append
@@ -469,7 +469,7 @@ export function createSim(opts){
     const acc = 1400*t.am*(charge ? 1.6 : 1);
     t.vx += mx*acc*dt; t.vy += my*acc*dt;
     const drag = Math.exp(-4*dt); t.vx *= drag; t.vy *= drag;
-    const maxS = 260/Math.sqrt(C.mass)*t.sm*(1 + (t.cls === 'roller' ? 0.05 : 0.04)*up(t, 'speed'))*(charge ? 1.6 : 1)*(t.surface === -1 ? 1 : MOVE_SCALE);
+    const maxS = 260/Math.sqrt(C.mass)*(C.move || 1)*t.sm*(1 + (t.cls === 'roller' ? 0.05 : 0.04)*up(t, 'speed'))*(charge ? 1.6 : 1)*(t.surface === -1 ? 1 : MOVE_SCALE);
     let sp = Math.hypot(t.vx, t.vy); if (sp > maxS){ t.vx *= maxS/sp; t.vy *= maxS/sp; sp = maxS; }
     t.moving = sp > 30;
     t.x += t.vx*dt; t.y += t.vy*dt;
