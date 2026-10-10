@@ -28,14 +28,15 @@ export const OBJ = {can:{hp:18,mass:2,pts:1,r:22,splat:50}, barrel:{hp:110,mass:
 // Share of the floating objects on the map (out of 100): pink orbs are the most common, prisms the rarest.
 // New objects fill whichever type is furthest below its share, so the mix stays the same even though orbs and tins break fastest.
 // The gold tin comes on its own timer.
-export const SPAWN_WEIGHT = {orb:42, can:30, barrel:18, triangle:10};
+// With 65 objects that is about 30 orbs (20% more than before), 18 tins, 11 drums and 6 prisms.
+export const SPAWN_WEIGHT = {orb:46.5, can:27.7, barrel:16.6, triangle:9.2};
 // damage a player takes when bumping into a floating object (at most once every BUMP_CD seconds per object)
 export const MOVE_SCALE = 0.85;   // everyone moves 15% slower, except on enemy paint (which already slows you)
 export const BUMP_DMG = {can:3, gold:3, triangle:12, barrel:22}, BUMP_CD = 0.6, ROOKIE_BUMP = 3;   // Rookies take 3x bump damage
 // Rollers ram for a third of the normal damage; each Ram damage upgrade adds only +5% (Charge still doubles it)
 export const ROLLER_RAM = 1/3, RAM_PER_UP = 0.05;
 const ramMul = t => t.cls === 'roller' ? ROLLER_RAM*(t.specialT > 0 ? 2 : 1)*(1 + RAM_PER_UP*up(t, 'ram')) : 1;
-export const OBJ_TARGET = 60;   // floating objects kept on the (bigger) map
+export const OBJ_TARGET = 65;   // floating objects kept on the (bigger) map
 // Hurtbox: players are drawn as 2.5D sprites standing FEET below (t.x, t.y), about 48 wide and 100 tall, the same size for
 // every class. Shots and blasts hit the drawn body: a capsule from BODY_TOP above to BODY_BOT below (t.x, t.y), radius BODY_R.
 // Bullets are drawn SHOT_H above their shadow (b.x, b.y), at BUBBLE_VIS times their radius. The class r stays the footprint
