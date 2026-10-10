@@ -73,7 +73,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .stats{position:fixed;z-index:3;left:calc(16px + env(safe-area-inset-left,0px));width:268px;max-width:calc((100vw - 32px)/var(--k,1));transform:scale(var(--k,1));transform-origin:left bottom;background:var(--panel);border:3px solid var(--ink);border-radius:14px;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px}
 .stats-head{display:flex;justify-content:space-between;font:800 15px var(--display)}
 .stats-head span:last-child{font:500 13px var(--body);color:var(--muted)}
-.ptsbox{width:270px}
+.ptsbox{width:max-content}
 .ptsbox .stats-head{white-space:nowrap;gap:10px}
 #ptsCount{font:800 15px var(--display);color:var(--ink);font-variant-numeric:tabular-nums}
 .ptsbar{display:grid;gap:3px}
@@ -86,6 +86,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .pips i.on{background:var(--ink)}
 .plus{width:36px;height:28px;border:none;border-radius:8px;background:var(--pink);color:var(--ink);font:800 18px var(--display);cursor:pointer;padding:0}
 .plus:disabled{background:var(--alert);color:rgba(255,255,255,.7);box-shadow:0 0 8px 1px rgba(184,18,92,.55);cursor:not-allowed}
+.uisize{display:flex;align-items:center;gap:8px}.uisize span{flex:1;text-align:center;font:500 17px var(--display)}.uisize .btn{height:40px;width:56px;padding:0;font-size:22px}.uisize .btn:disabled{opacity:.35;cursor:default}
 .pause-card{width:360px;display:flex;flex-direction:column;gap:12px;text-align:center}
 .pause-card h2{font:800 32px var(--display);margin:0}
 .pause-card .sub{margin:0 0 4px}
@@ -109,6 +110,8 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
       <button id="mFfa" class="mode" aria-pressed="true">Free-for-all · 15</button>
       <button id="mTeams" class="mode" aria-pressed="false">Teams 5 v 5 v 5</button>
     </div>
+    <div class="label">UI size</div>
+    <div class="uisize" role="group" aria-label="UI size"><button class="btn uiDown" type="button" aria-label="Smaller UI">−</button><span class="uiVal">100%</span><button class="btn uiUp" type="button" aria-label="Bigger UI">+</button></div>
     <div class="play-row">
       <button id="playOnline" class="btn primary">Play online</button>
       <button id="playLocal" class="btn">Practice vs bots</button>
@@ -148,6 +151,8 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
       <button id="quit" class="btn">Main menu</button>
     </div>
     <button id="soundBtn" class="btn" aria-pressed="true">Sound: on</button>
+    <div class="label">UI size (- and = keys)</div>
+    <div class="uisize" role="group" aria-label="UI size"><button class="btn uiDown" type="button" aria-label="Smaller UI">−</button><span class="uiVal">100%</span><button class="btn uiUp" type="button" aria-label="Bigger UI">+</button></div>
   </div>
 </div>
 
@@ -186,8 +191,8 @@ function fmtTime(s){ s = Math.max(0, Math.ceil(s)); return Math.floor(s/60) + ':
 function lerpAngle(a, b, u){ let d = b - a; while (d > Math.PI) d -= Math.PI*2; while (d < -Math.PI) d += Math.PI*2; return a + d*u; }
 
 /* ---------- settings ---------- */
-const settings = {nick:'', mode:'ffa'};
-try { const s = JSON.parse(localStorage.getItem('splatter-settings') || '{}'); if (s.nick) settings.nick = String(s.nick).slice(0,16); if (s.mode==='teams') settings.mode = 'teams'; } catch(e) {}
+const settings = {nick:'', mode:'ffa', ui:1};
+try { const s = JSON.parse(localStorage.getItem('splatter-settings') || '{}'); if (s.nick) settings.nick = String(s.nick).slice(0,16); if (s.mode==='teams') settings.mode = 'teams'; if (s.ui >= 0.5 && s.ui <= 1.2) settings.ui = s.ui; } catch(e) {}
 function saveSettings(){ try { localStorage.setItem('splatter-settings', JSON.stringify(settings)); } catch(e) {} }
 
 /* ---------- paint layer ---------- */
@@ -1190,12 +1195,13 @@ function drawInkBar(x, y, w, h, f, col, u){
     ctx.beginPath(); ctx.ellipse(d.x, d.y, d.r*0.8, d.r*1.15, 0, 0, Math.PI*2); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = INK; ctx.stroke(); }
   ctx.globalAlpha = 1; inkFx.drips = inkFx.drips.filter(d => d.t < d.T);
 }
-function specialBtn(){ const u = clamp(Math.min(VW,VH)/720, 0.62, 1); return {x: VW - 16 - SAFE.r - 50, y: VH - 16 - SAFE.b - 45*u, r: 40}; }
+function specialBtn(){ const k = clamp(settings.ui, 0.75, 1.2), u = clamp(Math.min(VW,VH)/720, 0.62, 1)*settings.ui; return {x: VW - 16 - SAFE.r - 50*k, y: VH - 16 - SAFE.b - 45*u, r: 40*k}; }
 
 function drawHUD(){
   // Desktop: the HUD scales with the window like the camera, and layout switches use HUD-relative width (lw),
   // so browser zoom (Cmd +/-) never shows or hides panels such as the team cards. Phones keep a minimum size.
-  const p = V.me, u = coarse ? clamp(Math.min(VW,VH)/720, 0.62, 1) : Math.min(VW,VH)/900, lw = coarse ? VW : VW/u, narrow = lw < 760, merged = lw < 900;
+  // settings.ui (the UI size setting, 50-120%) scales only the HUD; the camera and everything in the arena stay the same
+  const p = V.me, u = (coarse ? clamp(Math.min(VW,VH)/720, 0.62, 1) : Math.min(VW,VH)/900)*settings.ui, lw = coarse ? VW/settings.ui : VW/u, narrow = lw < 760, merged = lw < 900;
   const L = 16 + SAFE.l, R = VW - 16 - SAFE.r, T0 = 16 + SAFE.t, B0 = VH - 16 - SAFE.b;
   const sh = shares(), cx = VW/2;
   const online = session.kind === 'net';
@@ -1309,8 +1315,8 @@ function drawHUD(){
   }
   statsBox.style.bottom = ptsBox.style.bottom = (VH - iy + 10) + 'px';
   // DOM panels follow the canvas HUD scale on desktop (--k), so browser zoom doesn't resize them relative to the arena
-  const k = coarse ? 1 : +u.toFixed(3); if (hudK !== k){ hudK = k; document.documentElement.style.setProperty('--k', String(k)); }
-  ptsBox.style.width = Math.round(iw/k) + 'px';
+  const k = coarse ? settings.ui : +u.toFixed(3); if (hudK !== k){ hudK = k; document.documentElement.style.setProperty('--k', String(k)); }
+  ptsBox.style.minWidth = Math.round(iw/k) + 'px';   // at least as wide as the HUD panel below, wider if its text needs it
   if (touchCtl.used && p.cls !== 'rookie'){
     const sb = specialBtn(); ctx.beginPath(); ctx.arc(sb.x, sb.y, sb.r, 0, Math.PI*2); ctx.fillStyle = p.specialCd > 0 ? FLOOR : '#FF2D87'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
     if (p.specialCd > 0){ ctx.beginPath(); ctx.moveTo(sb.x, sb.y); ctx.arc(sb.x, sb.y, sb.r - 4, -Math.PI/2, -Math.PI/2 + Math.PI*2*(1 - p.specialCd/(8*(1 - 0.10*(p.stats ? S.up(p, 'scd') : 0))))); ctx.closePath(); ctx.fillStyle = 'rgba(35,42,53,.18)'; ctx.fill(); }
@@ -1457,6 +1463,15 @@ function openPause(){
 }
 function closePause(){ $('pause').hidden = true; keys.clear(); }
 $('resume').addEventListener('click', closePause);
+const UI_MIN = 0.5, UI_MAX = 1.2;
+function setUI(v){
+  settings.ui = Math.round(clamp(v, UI_MIN, UI_MAX)*10)/10; saveSettings();
+  document.querySelectorAll('.uiVal').forEach(e => e.textContent = Math.round(settings.ui*100) + '%');
+  document.querySelectorAll('.uiDown').forEach(b => b.disabled = settings.ui <= UI_MIN); document.querySelectorAll('.uiUp').forEach(b => b.disabled = settings.ui >= UI_MAX);
+}
+document.querySelectorAll('.uiDown').forEach(b => b.addEventListener('click', () => setUI(settings.ui - 0.1)));
+document.querySelectorAll('.uiUp').forEach(b => b.addEventListener('click', () => setUI(settings.ui + 0.1)));
+setUI(settings.ui);
 $('soundBtn').addEventListener('click', () => setMuted(!audio.muted)); setMuted(audio.muted);
 $('quit').addEventListener('click', toTitle);
 async function refreshOnline(){
@@ -1473,6 +1488,7 @@ window.addEventListener('keydown', e => {
   if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code) && inGame()) e.preventDefault();
   if (e.code === 'Space' && !e.repeat) queueSpecial();
   if (e.code === 'KeyM' && !e.repeat) setMuted(!audio.muted);
+  if ((e.code === 'Minus' || e.code === 'Equal') && !e.metaKey && !e.ctrlKey && !e.altKey && e.target !== nick) setUI(settings.ui + (e.code === 'Minus' ? -0.1 : 0.1));
   keys.add(e.code);
   if (inGame() && menuOpen() && /^Digit[1-4]$/.test(e.code)) chooseClass(CLASS_KEYS[Number(e.code.slice(5)) - 1]);
   else if (inGame() && /^Digit[1-6]$/.test(e.code)) sendUpgrade(Number(e.code.slice(5)) - 1);
