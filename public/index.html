@@ -44,7 +44,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .wide{width:860px}
 .wide h2{font:800 32px var(--display);margin:0}
 .sub{margin:4px 0 16px;color:var(--muted)}
-.clsmenu{position:fixed;z-index:4;left:50%;top:min(calc(50% + 64px), calc(100% - 210px));transform:translateX(-50%);width:min(520px, calc(100vw - 32px));background:var(--panel);border:3px solid var(--ink);border-radius:16px;padding:10px 12px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;box-shadow:0 0 0 5px rgba(255,45,135,.35);animation:menuPop .22s ease-out}
+.clsmenu{position:fixed;z-index:4;left:50%;top:min(calc(50% + 64px*var(--k,1)), calc(100% - 210px*var(--k,1)));transform:translateX(-50%) scale(var(--k,1));transform-origin:top center;width:min(520px, calc((100vw - 32px)/var(--k,1)));background:var(--panel);border:3px solid var(--ink);border-radius:16px;padding:10px 12px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;box-shadow:0 0 0 5px rgba(255,45,135,.35);animation:menuPop .22s ease-out}
 .clsmenu-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
 .clsmenu-head b{font:800 18px var(--display)}
 .clsmenu-head span{font-size:13px;color:var(--muted)}
@@ -55,7 +55,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .pick b{font:800 15px var(--display)}
 .pick small{font-size:12px;color:var(--muted);line-height:1.3}
 .pick kbd{position:absolute;top:5px;left:6px;font:500 11px var(--body);color:var(--muted)}
-@keyframes menuPop{from{opacity:0;transform:translateX(-50%) scale(.88)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+@keyframes menuPop{from{opacity:0;transform:translateX(-50%) scale(calc(.88*var(--k,1)))}to{opacity:1;transform:translateX(-50%) scale(var(--k,1))}}
 .results{width:900px;display:flex;flex-wrap:wrap;gap:24px;align-items:center}
 .res-map{flex:1 1 300px;min-width:0}
 .res-map canvas{width:100%;height:auto;border:3px solid var(--ink);border-radius:14px;display:block;image-rendering:pixelated;background:var(--floor)}
@@ -70,7 +70,7 @@ input:focus-visible,button:focus-visible{outline:3px solid var(--pink);outline-o
 .tile b{font:800 clamp(20px,4vw,28px) var(--display);font-variant-numeric:tabular-nums}
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .next{font:500 15px var(--body);color:var(--muted);font-variant-numeric:tabular-nums}
-.stats{position:fixed;z-index:3;left:calc(16px + env(safe-area-inset-left,0px));width:268px;max-width:calc(100vw - 32px);background:var(--panel);border:3px solid var(--ink);border-radius:14px;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px}
+.stats{position:fixed;z-index:3;left:calc(16px + env(safe-area-inset-left,0px));width:268px;max-width:calc((100vw - 32px)/var(--k,1));transform:scale(var(--k,1));transform-origin:left bottom;background:var(--panel);border:3px solid var(--ink);border-radius:14px;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px}
 .stats-head{display:flex;justify-content:space-between;font:800 15px var(--display)}
 .stats-head span:last-child{font:500 13px var(--body);color:var(--muted)}
 .ptsbox{width:270px}
@@ -1017,7 +1017,9 @@ function drawObjPops(c){
 }
 
 function viewScale(){
-  let s = Math.sqrt(VW*VH/(1600*900)); s = clamp(s, 0.32, 1.6);
+  // Everyone sees the same slice of the arena (about 1600 x 900 world units, at most 2200 wide or 1400 tall),
+  // whatever the screen size or browser zoom (Cmd +/-): every term scales with VW/VH, so zoom cancels out.
+  let s = Math.max(Math.sqrt(VW*VH/(1600*900)), VW/2200, VH/1400);
   const p = V && V.me; if (p && p.cls === 'liner' && p.specialT > 0) s /= 1.6;
   return s;
 }
@@ -1191,7 +1193,9 @@ function drawInkBar(x, y, w, h, f, col, u){
 function specialBtn(){ const u = clamp(Math.min(VW,VH)/720, 0.62, 1); return {x: VW - 16 - SAFE.r - 50, y: VH - 16 - SAFE.b - 45*u, r: 40}; }
 
 function drawHUD(){
-  const p = V.me, u = clamp(Math.min(VW,VH)/720, 0.62, 1), narrow = VW < 760, merged = VW < 900;
+  // Desktop: the HUD scales with the window like the camera, and layout switches use HUD-relative width (lw),
+  // so browser zoom (Cmd +/-) never shows or hides panels such as the team cards. Phones keep a minimum size.
+  const p = V.me, u = coarse ? clamp(Math.min(VW,VH)/720, 0.62, 1) : Math.min(VW,VH)/900, lw = coarse ? VW : VW/u, narrow = lw < 760, merged = lw < 900;
   const L = 16 + SAFE.l, R = VW - 16 - SAFE.r, T0 = 16 + SAFE.t, B0 = VH - 16 - SAFE.b;
   const sh = shares(), cx = VW/2;
   const online = session.kind === 'net';
@@ -1259,7 +1263,7 @@ function drawHUD(){
       text(pct(q.v), x + w - 14*u, ry + rowH/2, f, fc, 'right', 'middle');
     }
     if (!narrow){ const more = rows.length > show ? '+' + (rows.length - show) + ' more players' : (rows.length === 1 ? 'Share the link to invite friends' : rows.length + ' players in this match'); text(more, x + 14*u, yy + h - 12*u, '400 ' + Math.round(12.5*u) + 'px ' + FB, MUTED); }
-  } else if (VW >= 1000){
+  } else if (lw >= 1000){
     const card = (team, x, y) => {
       const w = 176*u, h = (32 + 5*18 + 8)*u; ctx.fillStyle = WHITE; rr(ctx, x, y, w, h, 14*u); ctx.fill(); ctx.lineWidth = 4*u; ctx.strokeStyle = TCOL[team]; ctx.stroke();
       text(TNAME[team] + ' team', x + 12*u, y + 24*u, '800 ' + Math.round(14*u) + 'px ' + FD);
@@ -1304,7 +1308,9 @@ function drawHUD(){
     for (let k=1;k<cost;k++){ const nx = bx + bw*k/cost; ctx.fillStyle = k/cost < barFrac ? 'rgba(255,255,255,.6)' : 'rgba(35,42,53,.25)'; ctx.fillRect(nx - 1, by + 2*u, 2, 8*u); }   // one notch per point
   }
   statsBox.style.bottom = ptsBox.style.bottom = (VH - iy + 10) + 'px';
-  ptsBox.style.width = Math.round(iw) + 'px';
+  // DOM panels follow the canvas HUD scale on desktop (--k), so browser zoom doesn't resize them relative to the arena
+  const k = coarse ? 1 : +u.toFixed(3); if (hudK !== k){ hudK = k; document.documentElement.style.setProperty('--k', String(k)); }
+  ptsBox.style.width = Math.round(iw/k) + 'px';
   if (touchCtl.used && p.cls !== 'rookie'){
     const sb = specialBtn(); ctx.beginPath(); ctx.arc(sb.x, sb.y, sb.r, 0, Math.PI*2); ctx.fillStyle = p.specialCd > 0 ? FLOOR : '#FF2D87'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
     if (p.specialCd > 0){ ctx.beginPath(); ctx.moveTo(sb.x, sb.y); ctx.arc(sb.x, sb.y, sb.r - 4, -Math.PI/2, -Math.PI/2 + Math.PI*2*(1 - p.specialCd/(8*(1 - 0.10*(p.stats ? S.up(p, 'scd') : 0))))); ctx.closePath(); ctx.fillStyle = 'rgba(35,42,53,.18)'; ctx.fill(); }
@@ -1334,6 +1340,7 @@ function buildStatRows(cls){
 buildStatRows('rookie');
 // before you can afford an upgrade, a small counter shows points towards the next one (e.g. 3 / 10)
 const ptsBox = $('ptsBox'), ptsBar = $('ptsBar');
+let hudK = 1;
 let ptsKey = '';
 function syncPoints(p, statsShown){
   const show = !!(p && p.stats && !p.dead && !p.classPending && !statsShown && p.stats.some(v => v < 8));
@@ -1500,6 +1507,7 @@ window.addEventListener('resize', resize); resize();
 let lastT = performance.now();
 const DT = 1/60;
 function frame(now){
+  if (innerWidth !== VW || innerHeight !== VH || Math.min(devicePixelRatio || 1, 2) !== DPR) resize();   // zoom or screen change without a resize event
   let el = (now - lastT)/1000; lastT = now; if (el > 0.25) el = 0.25;
   frameDt = el; clk += el;
   const s = session;
