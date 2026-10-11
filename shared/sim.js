@@ -1,7 +1,7 @@
 // Bubble Arena shared simulation: runs on the server (authoritative) and in the browser (practice mode).
 // No DOM, no Node APIs.
 
-export const WW = 4320, WH = 2592, CELL = 12, GW = 360, GH = 216, MATCH = 600, MAX_PLAYERS = 15;
+export const WW = 5184, WH = 3108, CELL = 12, GW = 432, GH = 259, MATCH = 600, MAX_PLAYERS = 15;
 export const PCOL = ['#E4E2DD','#FF2D87','#FF3B3B','#FF8A1F','#FFB020','#FFD21F','#9BE22D','#2DBE5A','#5EE6B0','#1FD6D0','#4FC3FF','#2D8CFF','#4B5BFF','#9B5CFF','#E040FB','#A0622D'];
 export const PNAME = ['','Pink','Red','Orange','Amber','Yellow','Lime','Green','Mint','Aqua','Sky','Blue','Indigo','Purple','Magenta','Cocoa'];
 export const TCOL = [null,'#2D8CFF','#FF8A1F','#FFD21F'];
@@ -9,34 +9,38 @@ export const TNAME = ['','Blue','Orange','Yellow'];
 export const CLASSES = {
   rookie:    {label:'Rookie', r:28, mass:1.0, hp:100, rate:1, speed:490, range:480, dmg:10, ink:3, splat:40, br:7, desc:'Starter with a basic paint pistol', tag:'', spec:'', specLong:'',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, refill:1.2, flatRefill:true, rate:3, speed:525, range:520, dmg:12, ink:3, splat:50, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
+  splat:     {label:'Blaster', r:30, mass:1.0, hp:100, per:{rate:0.05, dmg:0.09, splat:0.04, bspd:0.04}, refill:1.2, flatRefill:true, rate:3, speed:525, range:520, dmg:12, ink:3, splat:50, br:8, desc:'All-rounder: steady shots at medium range', tag:'Fast steady shots', spec:'Rapid', specLong:'Special: 2 s of double fire rate',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  roller:    {label:'Roller', r:34, mass:1.4, move:0.9, hp:120, rate:2, speed:525, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by walking', tag:'Paints as it walks', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
+  roller:    {label:'Roller', r:34, mass:1.4, move:0.9, hp:120, ownBoost:1.25, per:{hp:20, trail:0.24}, armor:0.3, crush:6.5, rate:2, speed:525, range:300, dmg:10, ink:2, splat:34, br:8, desc:'Paints a wide stripe just by walking', tag:'Paints as it walks', spec:'Charge', specLong:'Special: 1.5 s charge, double ram damage',
                ups:[['trail','Roller width'],['ram','Ram damage'],['scd','Charge reload'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  bomber:    {label:'Bomber', r:32, mass:1.2, hp:100, rate:0.8, speed:675, range:376, dmg:35, ink:6, splat:110, br:12, bomb:true, desc:'Lobs ink bombs that burst into big splashes', tag:'Big splash bombs', spec:'Cluster', specLong:'Special: next bomb splits into 4',
+  bomber:    {label:'Bomber', r:32, mass:1.2, hp:100, per:{blast:0.045, rate:0.072, range:0.11, dmg:0.05}, rate:0.8, speed:675, range:376, dmg:35, ink:6, splat:110, br:12, bomb:true, desc:'Lobs ink bombs that burst into big splashes', tag:'Big splash bombs', spec:'Cluster', specLong:'Special: next bomb splits into 4',
                ups:[['blast','Blast radius'],['dmg','Bomb damage'],['rate','Reload'],['range','Throw range'],['ink','Ink tank'],['hp','Health']]},
   sprayer:   {label:'Sprayer', r:30, mass:1.0, hp:100, rate:2, speed:450, range:340, dmg:7, ink:8, splat:30, br:7, spread:5, desc:'Spray gun: a 5-shot spread in front', tag:'5-shot spread', spec:'Spin', specLong:'Special: 3 s of spinning spray',
                ups:[['rate','Fire rate'],['dmg','Shot damage'],['range','Range'],['ink','Ink tank'],['hp','Health'],['speed','Move speed']]},
-  liner:     {label:'Liner', r:28, mass:0.9, hp:90, rate:1, speed:1125, range:1100, dmg:24, kick:30, ink:8, tank:100, refill:2, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', tag:'Long-range lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
+  liner:     {label:'Liner', r:28, ownBoost:1.1, per:{rate:0.045, line:0.08, range:0.04, dmg:0.06}, mass:0.9, hp:105, rate:1, speed:1125, range:935, dmg:24, kick:30, ink:8, tank:100, refill:2, splat:30, br:6, line:true, desc:'Long-range sniper that paints thin lines', tag:'Long-range lines', spec:'Scope', specLong:'Special: zoom out for 4 s',
                ups:[['dmg','Shot damage'],['range','Range'],['line','Line width'],['rate','Reload'],['ink','Ink tank'],['speed','Move speed']]}
 };
 export const CLASS_LIST = ['splat','roller','bomber','sprayer','liner','rookie'];   // network order: only append
 export const CLASS_KEYS = ['splat','roller','bomber','liner'];   // classes a Rookie can transform into
 export const CLASS_AT = 5;                                       // upgrades bought before the class menu opens
-export const OBJ_TYPES = ['can','barrel','gold','triangle','orb'];
-export const OBJ = {can:{hp:18,mass:2,pts:1,r:22,splat:50}, barrel:{hp:110,mass:6,pts:4,r:30,splat:120}, gold:{hp:200,mass:4,pts:20,r:26,splat:160}, triangle:{hp:75,mass:3,pts:3,r:26,splat:75}, orb:{hp:8,mass:1,pts:1,r:15,splat:34}};
-// Share of the floating objects on the map (out of 100): pink orbs are the most common, prisms the rarest.
-// New objects fill whichever type is furthest below its share, so the mix stays the same even though orbs and tins break fastest.
-// The gold tin comes on its own timer.
-// With 65 objects that is about 30 orbs (20% more than before), 18 tins, 11 drums and 6 prisms.
-export const SPAWN_WEIGHT = {orb:46.5, can:27.7, barrel:16.6, triangle:9.2};
+export const OBJ_TYPES = ['can','barrel','gold','triangle','orb','chaser'];
+export const OBJ = {can:{hp:18,mass:2,pts:1,r:22,splat:50}, barrel:{hp:110,mass:6,pts:4,r:30,splat:120}, gold:{hp:200,mass:4,pts:20,r:26,splat:160}, triangle:{hp:75,mass:3,pts:3,r:26,splat:75}, orb:{hp:8,mass:1,pts:1,r:15,splat:34}, chaser:{hp:55,mass:2.5,pts:4,r:22,splat:90}};
+// How many of each floating object the map keeps (the map has 44% more floor than before, so every count grew with it,
+// and paint tins got another 15%). New objects fill whichever type is furthest below its count, so the mix stays the same
+// even though orbs and tins break fastest. The gold tin comes on its own timer, chasers (ink blots that hunt players) too.
+export const SPAWN_WEIGHT = {orb:43, can:30, barrel:16, triangle:9};
+export const OBJ_TARGET = Object.values(SPAWN_WEIGHT).reduce((a,b) => a+b, 0);   // 98 floating objects
+// Chasers: angry ink blots that hunt the nearest player in sight and bite on contact. Slower than you on plain or own floor,
+// faster than you on enemy paint. A Roller can grind them down by ramming; everyone else has to shoot them.
+export const CHASER = {count:6, respawn:5, see:520, lose:820, speed:165, wander:40, bite:8, rest:0.5};
 // damage a player takes when bumping into a floating object (at most once every BUMP_CD seconds per object)
+export const SPEED_PER_UP = 0.025;   // each Move speed upgrade: +2.5% top speed (was +4%, Roller +5%)
 export const MOVE_SCALE = 0.85;   // everyone moves 15% slower, except on enemy paint (which already slows you)
-export const BUMP_DMG = {can:3, gold:3, triangle:12, barrel:22}, BUMP_CD = 0.6, ROOKIE_BUMP = 3;   // Rookies take 3x bump damage
+export const BUMP_DMG = {can:3, gold:3, triangle:12, barrel:22, chaser:8}, BUMP_CD = 0.6, ROOKIE_BUMP = 3;   // Rookies take 3x bump damage
 // Rollers ram for a third of the normal damage; each Ram damage upgrade adds only +5% (Charge still doubles it)
 export const ROLLER_RAM = 1/3, RAM_PER_UP = 0.05;
+const chargeBoost = t => 1.6 + 0.03*up(t, 'ram');   // Charge speed: x1.6, up to x1.84 with Ram damage upgrades
 const ramMul = t => t.cls === 'roller' ? ROLLER_RAM*(t.specialT > 0 ? 2 : 1)*(1 + RAM_PER_UP*up(t, 'ram')) : 1;
-export const OBJ_TARGET = 65;   // floating objects kept on the (bigger) map
 // Hurtbox: players are drawn as 2.5D sprites standing FEET below (t.x, t.y), about 48 wide and 100 tall, the same size for
 // every class. Shots and blasts hit the drawn body: a capsule from BODY_TOP above to BODY_BOT below (t.x, t.y), radius BODY_R.
 // Bullets are drawn SHOT_H above their shadow (b.x, b.y), at BUBBLE_VIS times their radius. The class r stays the footprint
@@ -47,8 +51,8 @@ export const FEET = 20, SHOT_H = 16, BODY_TOP = 54, BODY_BOT = 2, BODY_R = 24, B
 export function randomObjectType(objects){
   const have = {}; for (const o of objects || []) have[o.type] = (have[o.type] || 0) + 1;
   const need = {}; let sum = 0;
-  for (const k in SPAWN_WEIGHT){ need[k] = Math.max(0, SPAWN_WEIGHT[k]/100*OBJ_TARGET - (have[k] || 0)); sum += need[k]; }
-  const w = sum > 0 ? need : SPAWN_WEIGHT; let r = Math.random()*(sum > 0 ? sum : 100);
+  for (const k in SPAWN_WEIGHT){ need[k] = Math.max(0, SPAWN_WEIGHT[k] - (have[k] || 0)); sum += need[k]; }
+  const w = sum > 0 ? need : SPAWN_WEIGHT; let r = Math.random()*(sum > 0 ? sum : OBJ_TARGET);
   for (const k in w){ r -= w[k]; if (r < 0) return k; }
   return 'orb';
 }
@@ -63,10 +67,14 @@ export const upgradeCost = t => t.cls !== 'rookie' ? UPGRADE_COST : bought(t) < 
 // points a Rookie has spent on n upgrades
 const rookieSpent = n => Math.min(n, ROOKIE_FIRST_N)*ROOKIE_FIRST_COST + Math.max(0, n - ROOKIE_FIRST_N)*ROOKIE_COST;
 // points a player has put into one of their class's upgrades
+// how much one level of an upgrade gives; a class can override any of these in its own per:{} (used to balance max levels)
+export const PER_UP = {rate:0.07, dmg:0.10, range:0.08, blast:0.10, trail:0.12, line:0.12, scd:0.10, hp:12, splat:0, bspd:0};
+export const perUp = (t, key) => { const p = CLASSES[t.cls].per; return p && p[key] !== undefined ? p[key] : PER_UP[key]; };
+export const gain = (t, key) => 1 + perUp(t, key)*up(t, key);   // multiplier from a percentage upgrade
 export function up(t, key){ const u = CLASSES[t.cls].ups; for (let i=0;i<u.length;i++) if (u[i][0] === key) return t.stats[i] || 0; return 0; }
 // how a player looks: one tier per upgrade slot (0 below level 3, 1 from level 3, 2 from level 6), base 3, +729 when all are maxed
 export function lookCode(t){ const st = t.stats || []; let c = 0, all = true; for (let i=0;i<6;i++){ const v = st[i] || 0; c = c*3 + (v >= 6 ? 2 : v >= 3 ? 1 : 0); if (v < 8) all = false; } return c + (all ? 729 : 0); }
-export const maxHpOf = t => (CLASSES[t.cls].hp || 100) + (t.cls === 'roller' ? 15 : 12)*up(t, 'hp');
+export const maxHpOf = t => (CLASSES[t.cls].hp || 100) + perUp(t, 'hp')*up(t, 'hp');
 export const INK_BASE = 70;   // base ink tank (was 100); a class can set its own with tank, and scale its refill with refill
 const tankOf = t => CLASSES[t.cls].tank || INK_BASE;
 export const inkCapOf = t => tankOf(t)*(1 + 0.12*up(t, 'ink'));
@@ -152,7 +160,7 @@ export function createSim(opts){
 
   function genObstacles(){
     const obs = []; let tries = 0;
-    while (obs.length < 20 && tries < 4000){
+    while (obs.length < 29 && tries < 6000){
       tries++;
       const w = Math.round(rand(60,220)), h = Math.round(rand(60,220));
       const x = Math.round(380 + Math.random()*(WW-760-w)), y = Math.round(260 + Math.random()*(WH-640-h));
@@ -199,7 +207,8 @@ export function createSim(opts){
     for (const t of G.tanks) spawnTank(t);
     fillBots();
     for (let k=0;k<OBJ_TARGET;k++) spawnObject(randomObjectType(G.objects));
-    G.spawnT = 0;
+    for (let k=0;k<Math.ceil(CHASER.count/2);k++) spawnObject('chaser');
+    G.spawnT = 0; G.chaseT = 20;
     onEvent({k:'roster'});
   }
 
@@ -290,7 +299,7 @@ export function createSim(opts){
       if (md > bs){ bs = md; best = [x,y]; }
     }
     if (!best) return;
-    G.objects.push({id:nextB++, type, x:best[0], y:best[1], vx:0, vy:0, dir:rand(0,TAU), rot:rand(0,6), vr: type === 'triangle' ? rand(1.2,1.8)*(Math.random() < 0.5 ? -1 : 1) : rand(-0.6,0.6), hp:d.hp, maxHp:d.hp, mass:d.mass, r:d.r, flash:0, dead:false});
+    G.objects.push({id:nextB++, type, x:best[0], y:best[1], vx:0, vy:0, dir:rand(0,TAU), rot:rand(0,6), vr: type === 'triangle' ? rand(1.2,1.8)*(Math.random() < 0.5 ? -1 : 1) : rand(-0.6,0.6), hp:d.hp, maxHp:d.hp, mass:d.mass, r:d.r, flash:0, dead:false, chase:false, target:null, rest:0});
   }
 
   function stamp(x, y, r, owner, credit){
@@ -329,7 +338,7 @@ export function createSim(opts){
     if (t.points < cost || t.stats[i] >= 8) return;
     const key = CLASSES[t.cls].ups[i][0];
     t.stats[i]++; t.points -= cost;
-    if (key === 'hp') t.hp += t.cls === 'roller' ? 15 : 12;
+    if (key === 'hp') t.hp += perUp(t, 'hp');
     if (key === 'ink') t.ink += tankOf(t)*0.12;
     t.level = t.stats.reduce((a,b) => a+b, 0);
     if (t.human) onEvent({k:'lvl', id:t.id, lv:t.level});
@@ -342,6 +351,7 @@ export function createSim(opts){
 
   function damage(t, amt, src){
     if (t.dead || t.protect > 0 || amt <= 0) return;
+    if (t.specialT > 0 && CLASSES[t.cls].armor) amt *= 1 - CLASSES[t.cls].armor;   // a charging Roller takes 40% less damage
     t.hp -= amt; t.lastHit = G.clock; t.flash = 0.06;
     if (src && src !== t) t.damagers[src.id] = G.clock;
     if (t.human) onEvent({k:'shake', id:t.id, s:0.12});
@@ -367,12 +377,12 @@ export function createSim(opts){
     if (t.ink < C.ink) return;
     t.ink -= C.ink;
     onEvent({k:'shot', by:t.id, x:t.x, y:t.y, c:t.cls});
-    t.reload = 1/C.rate*(1 - 0.07*up(t, 'rate'))*(t.cls === 'splat' && t.specialT > 0 ? 0.5 : 1);
-    const dm = 1 + 0.10*up(t, 'dmg'), rm = 1 + 0.08*up(t, 'range');
+    t.reload = 1/C.rate*(1 - perUp(t, 'rate')*up(t, 'rate'))*(t.cls === 'splat' && t.specialT > 0 ? 0.5 : 1);
+    const dm = gain(t, 'dmg'), rm = gain(t, 'range');
     const ca = Math.cos(t.aim), sa = Math.sin(t.aim);
     if (C.bomb){
-      const d = clamp(t.aimDist, 120, C.range*rm);
-      G.bombs.push({id:nextB++, x0:t.x + ca*t.r, y0:t.y + sa*t.r, x1:clamp(t.x + ca*d, 30, WW-30), y1:clamp(t.y + sa*d, 30, WH-30), t:0, T:0.75, R:110*(1 + 0.10*up(t, 'blast')), dmg:C.dmg*dm, cluster:t.cluster, owner:t, po:paintOwner(t)});
+      const d = clamp(t.aimDist, 60, C.range*rm), fly = 0.35 + 0.4*d/(C.range*rm);   // close throws land sooner
+      G.bombs.push({id:nextB++, x0:t.x + ca*t.r, y0:t.y + sa*t.r, x1:clamp(t.x + ca*d, 30, WW-30), y1:clamp(t.y + sa*d, 30, WH-30), t:0, T:fly, R:110*gain(t, 'blast'), dmg:C.dmg*dm, cluster:t.cluster, owner:t, po:paintOwner(t)});
       t.cluster = false;
       const J = 0.35*900*0.15/C.mass; t.vx -= ca*J; t.vy -= sa*J;
       return;
@@ -382,15 +392,15 @@ export function createSim(opts){
     const J = (C.kick || C.dmg)/100*C.speed/0.75*0.15/C.mass; t.vx -= ca*J; t.vy -= sa*J;
   }
   function spawnBullet(t, a, C, dm, rm){
-    const ca = Math.cos(a), sa = Math.sin(a), m = t.r*1.4;
+    const ca = Math.cos(a), sa = Math.sin(a), m = t.r*1.4, bs = 1 + perUp(t, 'bspd')*up(t, 'range');   // Blaster: Range upgrades also speed up its bullets
     const x = t.x + ca*m, y = t.y + sa*m;
     // sk: Blaster bullets leave 20% bigger impact splashes (walls, edges, hits); their range splash comes from C.splat
-    G.bullets.push({id:nextB++, x, y, px:x, py:y, vx:ca*C.speed + t.vx*0.3, vy:sa*C.speed + t.vy*0.3, r:C.br, dmg:C.dmg*dm, hp:C.dmg*dm,
-      owner:t, po:paintOwner(t), dist:0, range:C.range*rm, splat:C.splat, sk:t.cls === 'splat' ? 1.2 : 1, line:!!C.line, lineR:11*(1 + 0.12*up(t, 'line')), drop:0, dead:false});
+    G.bullets.push({id:nextB++, x, y, px:x, py:y, vx:ca*C.speed*bs + t.vx*0.3, vy:sa*C.speed*bs + t.vy*0.3, r:C.br, dmg:C.dmg*dm, hp:C.dmg*dm,
+      owner:t, po:paintOwner(t), dist:0, range:C.range*rm, splat:C.splat*(1 + perUp(t, 'splat')*up(t, 'dmg')), sk:t.cls === 'splat' ? 1.2 : 1, line:!!C.line, lineR:11*gain(t, 'line'), drop:0, dead:false});
   }
   function special(t){
     if (t.specialCd > 0 || t.cls === 'rookie') return;
-    t.specialCd = 8*(1 - 0.10*up(t, 'scd'));
+    t.specialCd = 8*(1 - perUp(t, 'scd')*up(t, 'scd'));
     if (t.cls === 'splat') t.specialT = 2;
     if (t.cls === 'roller') t.specialT = 1.5;
     else if (t.cls === 'bomber') t.cluster = true;
@@ -400,15 +410,17 @@ export function createSim(opts){
 
   function botThink(t, dt){
     const ai = t.ai, C = CLASSES[t.cls], po = paintOwner(t);
-    const rng = C.range*(1 + 0.08*up(t, 'range'));
+    const rng = C.range*gain(t, 'range');
     ai.think -= dt; ai.wpT -= dt; ai.strafeT -= dt;
     if (ai.strafeT <= 0){ ai.strafe = -ai.strafe; ai.strafeT = rand(1.5,4); }
     if (ai.think <= 0){
       ai.think = rand(0.12,0.28);
-      let best = null, bd = 720;
+      let best = null, bd = Math.max(720, rng*0.9);   // long-range classes notice enemies further away
       for (const e of G.tanks){ if (e.dead || !isEnemy(t,e) || e.protect > 0) continue; const d = Math.hypot(e.x-t.x, e.y-t.y); if (d < bd){ bd = d; best = e; } }
       ai.target = best; ai.obj = null;
-      if (!best){ let od = 480; for (const o of G.objects){ const d = Math.hypot(o.x-t.x, o.y-t.y); if (d < od){ od = d; ai.obj = o; } } }
+      // a chaser hunting this bot comes first (unless a player is close), then the nearest object
+      for (const o of G.objects){ if (o.type === 'chaser' && o.target === t && Math.hypot(o.x-t.x, o.y-t.y) < 460 && (!best || bd > 380)){ best = null; ai.target = null; ai.obj = o; break; } }
+      if (!best && !ai.obj){ let od = 480; for (const o of G.objects){ const d = Math.hypot(o.x-t.x, o.y-t.y); if (d < od){ od = d; ai.obj = o; } } }
       if (!ai.wp || ai.wpT <= 0 || Math.hypot(ai.wp[0]-t.x, ai.wp[1]-t.y) < 90){
         let bp = null, bs = -1;
         for (let k=0;k<8;k++){
@@ -427,22 +439,23 @@ export function createSim(opts){
     const e = ai.target && !ai.target.dead ? ai.target : null;
     if (e){
       const dx = e.x - t.x, dy = e.y - t.y, d = Math.hypot(dx,dy) || 1;
-      const lead = d/(C.speed || 900)*0.7;
-      aim = Math.atan2(e.y + e.vy*lead - t.y, e.x + e.vx*lead - t.x) + ai.err;
-      t.aimDist = d;
-      const pref = Math.min(rng*0.7, 520);
+      const lead = C.bomb ? 0.35 + 0.4*Math.min(1, d/rng) : d/(C.speed || 900)*0.7;   // a bomb takes its flight time to land
+      const ax = e.x + e.vx*lead - t.x, ay = e.y + e.vy*lead - t.y;
+      aim = Math.atan2(ay, ax) + ai.err;
+      t.aimDist = Math.hypot(ax, ay);   // bombs land on the led spot, not where the target is now
+      const pref = C.line ? rng*0.6 : Math.min(rng*0.7, 520);   // the Liner keeps its distance
       const radial = d > pref + 80 ? 1 : d < pref - 80 ? -0.7 : 0;
       mx = dx/d*radial + (-dy/d)*ai.strafe*0.85; my = dy/d*radial + (dx/d)*ai.strafe*0.85;
-      if (t.cls === 'roller'){ mx = dx/d; my = dy/d; if (d < 320) spec = true; }
+      if (t.cls === 'roller'){ mx = dx/d; my = dy/d; if (d < 480) spec = true; }
       if (t.hp < t.mhp*0.3 && t.cls !== 'roller'){ mx = -dx/d + (-dy/d)*ai.strafe*0.5; my = -dy/d + (dx/d)*ai.strafe*0.5; }
       fireOn = d < rng*1.05 && t.ink > C.ink + 4;
       if ((t.cls === 'bomber' || t.cls === 'splat' || (t.cls === 'sprayer' && d < 360)) && Math.random() < 0.02) spec = true;
     } else if (ai.obj && !ai.obj.dead){
       const o = ai.obj, dx = o.x - t.x, dy = o.y - t.y, d = Math.hypot(dx,dy) || 1;
       aim = Math.atan2(dy,dx) + ai.err*0.5; t.aimDist = d;
-      const radial = d > 260 ? 1 : d < 160 ? -0.6 : 0;
-      mx = dx/d*radial; my = dy/d*radial;
-      fireOn = d < rng && t.ink > C.ink + 10;
+      const ch = o.type === 'chaser', radial = ch ? (t.cls === 'roller' ? 1 : d < 320 ? -1 : 0.3) : d > 260 ? 1 : d < 160 ? -0.6 : 0;
+      mx = dx/d*radial + (ch ? (-dy/d)*ai.strafe*0.6 : 0); my = dy/d*radial + (ch ? (dx/d)*ai.strafe*0.6 : 0);   // back away from a chaser while shooting it
+      fireOn = d < rng && t.ink > C.ink + (ch ? 0 : 10);
     } else {
       const dx = ai.wp[0] - t.x, dy = ai.wp[1] - t.y, d = Math.hypot(dx,dy) || 1;
       mx = dx/d; my = dy/d;
@@ -464,14 +477,14 @@ export function createSim(opts){
     const pts = [[0,0],[cf,sf],[-cf,-sf],[-sf,cf],[sf,-cf]];
     for (const p of pts){ const v = gridAt(t.x+p[0], t.y+p[1]); if (v === po) own++; else if (v === 0 || v === 255) neu++; else en++; }
     t.surface = own > en && own > neu ? 1 : en > own && en > neu ? -1 : 0;
-    const ts = t.surface === 1 ? 1.4 : t.surface === -1 ? 0.6 : 1, ta = t.surface === 1 ? 1.3 : t.surface === -1 ? 0.7 : 1;
+    const ts = t.surface === 1 ? (C.ownBoost || 1.4) : t.surface === -1 ? 0.6 : 1, ta = t.surface === 1 ? 1.3 : t.surface === -1 ? 0.7 : 1;
     const ease = Math.min(1, dt/0.15); t.sm += (ts - t.sm)*ease; t.am += (ta - t.am)*ease;
     let mx = t.input.mx, my = t.input.my; const ml = Math.hypot(mx,my); if (ml > 1){ mx /= ml; my /= ml; }
     const charge = t.cls === 'roller' && t.specialT > 0;
-    const acc = 1400*t.am*(charge ? 1.6 : 1);
+    const acc = 1400*t.am*(charge ? chargeBoost(t) : 1);
     t.vx += mx*acc*dt; t.vy += my*acc*dt;
     const drag = Math.exp(-4*dt); t.vx *= drag; t.vy *= drag;
-    const maxS = 260/Math.sqrt(C.mass)*(C.move || 1)*t.sm*(1 + (t.cls === 'roller' ? 0.05 : 0.04)*up(t, 'speed'))*(charge ? 1.6 : 1)*(t.surface === -1 ? 1 : MOVE_SCALE);
+    const maxS = 260/Math.sqrt(C.mass)*(C.move || 1)*t.sm*(1 + SPEED_PER_UP*up(t, 'speed'))*(charge ? chargeBoost(t) : 1)*(t.surface === -1 ? 1 : MOVE_SCALE);
     let sp = Math.hypot(t.vx, t.vy); if (sp > maxS){ t.vx *= maxS/sp; t.vy *= maxS/sp; sp = maxS; }
     t.moving = sp > 30;
     t.x += t.vx*dt; t.y += t.vy*dt;
@@ -488,11 +501,11 @@ export function createSim(opts){
     if (t.input.special){ special(t); if (t.human) t.input.special = false; }
     if (t.cls === 'sprayer' && t.specialT > 0){
       t.spinA += dt*6; t.spinReload -= dt;
-      if (t.spinReload <= 0 && t.ink >= 3){ t.spinReload = 1/6; t.ink -= 3; for (let k=0;k<6;k++) spawnBullet(t, t.spinA + k*Math.PI/3, C, 1 + 0.10*up(t, 'dmg'), 1 + 0.08*up(t, 'range')); }
+      if (t.spinReload <= 0 && t.ink >= 3){ t.spinReload = 1/6; t.ink -= 3; for (let k=0;k<6;k++) spawnBullet(t, t.spinA + k*Math.PI/3, C, gain(t, 'dmg'), gain(t, 'range')); }
     }
     if (t.cls === 'roller' && moving && t.ink > 0){
       t.trailAcc += sp*dt;
-      while (t.trailAcc >= 12){ t.trailAcc -= 12; t.ink -= 0.6; stamp(t.x - t.vx/sp*t.r*0.3, t.y - t.vy/sp*t.r*0.3, 35*(1 + 0.12*up(t, 'trail')), po, t); }
+      while (t.trailAcc >= 12){ t.trailAcc -= 12; t.ink -= 0.6; stamp(t.x - t.vx/sp*t.r*0.3, t.y - t.vy/sp*t.r*0.3, 35*gain(t, 'trail'), po, t); }
     }
     refresh(t);
   }
@@ -543,7 +556,7 @@ export function createSim(opts){
         if (shotHits(b, t)){
           b.dead = true;
           const sp = Math.hypot(b.vx,b.vy) || 1, m = CLASSES[t.cls].mass;
-          if (t.protect <= 0){ t.vx += b.vx/sp*40/m; t.vy += b.vy/sp*40/m; }
+          if (t.protect <= 0 && !t.charge){ t.vx += b.vx/sp*40/m; t.vy += b.vy/sp*40/m; }   // a charging Roller can't be pushed back
           stamp(t.x, t.y, 18*b.sk, b.po, b.owner);
           if (t.protect <= 0){ if (b.owner.human) onEvent({k:'hit', by:b.owner.id, x:b.x, y:b.y}); }
           damage(t, b.dmg, b.owner);
@@ -581,20 +594,35 @@ export function createSim(opts){
       for (const t of G.tanks){
         if (t.dead || !isEnemy(b.owner, t)) continue;
         const d = bodyDist(t, x, y), dd = Math.hypot(t.x-x, t.y-y) || 1;   // the blast must reach the drawn body
-        if (d < b.R + BODY_R){ const k = Math.max(0, 1 - d/b.R); damage(t, b.dmg*Math.max(k,0.15), b.owner); if (t.protect <= 0){ const m = CLASSES[t.cls].mass; t.vx += (t.x-x)/dd*450*k/m; t.vy += (t.y-y)/dd*450*k/m; } }
+        if (d < b.R + BODY_R){ const k = Math.max(0, 1 - d/b.R); damage(t, b.dmg*Math.max(k,0.15), b.owner); if (t.cls === 'roller' && t.specialT > 0 && k > 0.25) t.specialT -= 0.4;   // a close blast cuts a Roller's charge short
+          if (t.protect <= 0){ const m = CLASSES[t.cls].mass; t.vx += (t.x-x)/dd*450*k/m; t.vy += (t.y-y)/dd*450*k/m; } }
       }
       for (const o of G.objects){ if (o.dead) continue; const d = Math.hypot(o.x-x, o.y-y); if (d < b.R + o.r*0.5){ const k = Math.max(0.15, 1 - d/b.R); damageObj(o, b.dmg*k, b.owner, (o.x-x)/(d||1)*3, (o.y-y)/(d||1)*3); } }
       stamp(x, y, b.R, b.po, b.owner);
       onEvent({k:'ring', x, y, r:b.R, o:b.po});
       for (const t of G.tanks) if (t.human && !t.dead && Math.hypot(t.x-x, t.y-y) < 200) onEvent({k:'shake', id:t.id, s:0.12});
-      if (b.cluster){ for (let k=0;k<4;k++){ const a = k*Math.PI/2 + Math.PI/4; G.bombs.push({id:nextB++, x0:x, y0:y, x1:clamp(x + Math.cos(a)*140, 30, WW-30), y1:clamp(y + Math.sin(a)*140, 30, WH-30), t:0, T:0.4, R:70*(1 + 0.10*up(b.owner, 'blast')), dmg:20*(1 + 0.10*up(b.owner, 'dmg')), cluster:false, owner:b.owner, po:b.po}); } }
+      if (b.cluster){ for (let k=0;k<4;k++){ const a = k*Math.PI/2 + Math.PI/4; G.bombs.push({id:nextB++, x0:x, y0:y, x1:clamp(x + Math.cos(a)*140, 30, WW-30), y1:clamp(y + Math.sin(a)*140, 30, WH-30), t:0, T:0.4, R:70*gain(b.owner, 'blast'), dmg:20*gain(b.owner, 'dmg'), cluster:false, owner:b.owner, po:b.po}); } }
     }
     G.bombs = G.bombs.filter(b => !b.done);
   }
 
+  function updateChaser(o, dt){
+    // keep hunting the same player until they get far away, otherwise lock on to the nearest one in sight
+    let t = o.target && !o.target.dead && o.target.protect <= 0 && Math.hypot(o.target.x - o.x, o.target.y - o.y) < CHASER.lose ? o.target : null;
+    if (!t){ let bd = CHASER.see; for (const e of G.tanks){ if (e.dead || e.protect > 0) continue; const d = Math.hypot(e.x - o.x, e.y - o.y); if (d < bd){ bd = d; t = e; } } }
+    o.target = t; o.chase = !!t; o.rest -= dt;
+    let tx, ty;
+    if (t && o.rest <= 0){ const dx = t.x - o.x, dy = t.y + FEET*0.5 - o.y, d = Math.hypot(dx, dy) || 1; tx = dx/d*CHASER.speed; ty = dy/d*CHASER.speed; o.dir = Math.atan2(dy, dx); }
+    else if (t){ tx = 0; ty = 0; }
+    else { o.dir += rand(-0.6,0.6)*dt; tx = Math.cos(o.dir)*CHASER.wander; ty = Math.sin(o.dir)*CHASER.wander; }
+    const k = Math.min(1, (t ? 3 : 0.8)*dt); o.vx += (tx - o.vx)*k; o.vy += (ty - o.vy)*k;
+    o.x += o.vx*dt; o.y += o.vy*dt; o.flash -= dt;
+    o.rot = t ? Math.atan2(t.y - o.y, t.x - o.x) : Math.atan2(o.vy, o.vx);   // where its eyes look
+  }
   function updateObjects(dt){
     for (const o of G.objects){
       if (o.dead) continue;
+      if (o.type === 'chaser'){ updateChaser(o, dt); continue; }
       o.dir += rand(-0.3,0.3)*dt;
       const sp = o.type === 'orb' ? 22 : 15, tx = Math.cos(o.dir)*sp, ty = Math.sin(o.dir)*sp;   // light orbs drift a little faster
       const k = Math.min(1, 0.5*dt); o.vx += (tx - o.vx)*k; o.vy += (ty - o.vy)*k;
@@ -629,7 +657,7 @@ export function createSim(opts){
     return [hx, hy];
   }
 
-  function collide(){
+  function collide(dt){
     const T = G.tanks.filter(t => !t.dead);
     for (let i=0;i<T.length;i++) for (let j=i+1;j<T.length;j++){
       const a = T[i], b = T[j];
@@ -638,6 +666,8 @@ export function createSim(opts){
       const d = Math.sqrt(d2), nx = dx/d, ny = dy/d, ov = rs - d;
       const ma = CLASSES[a.cls].mass, mb = CLASSES[b.cls].mass, ia = 1/ma, ib = 1/mb;
       if (!isEnemy(a,b)){ a.x -= nx*ov*0.25; a.y -= ny*ov*0.25; b.x += nx*ov*0.25; b.y += ny*ov*0.25; continue; }
+      // a Roller crushes enemies it touches: crush x Ram damage level per second, doubled while charging
+      for (const [r, v] of [[a, b], [b, a]]){ const cr = CLASSES[r.cls].crush; if (cr && up(r, 'ram')) damage(v, cr*up(r, 'ram')*(r.specialT > 0 ? 2 : 1)*dt, r); }
       a.x -= nx*ov*ia/(ia+ib); a.y -= ny*ov*ia/(ia+ib); b.x += nx*ov*ib/(ia+ib); b.y += ny*ov*ib/(ia+ib);
       const vn = (b.vx - a.vx)*nx + (b.vy - a.vy)*ny;
       if (vn < 0){
@@ -661,11 +691,12 @@ export function createSim(opts){
         t.x -= nx*ov*it/(it+io); t.y -= ny*ov*it/(it+io); o.x += nx*ov*io/(it+io); o.y += ny*ov*io/(it+io);
         const vn = (o.vx - t.vx)*nx + (o.vy - t.vy)*ny;
         if (vn < 0){ const J = -1.5*vn/(it+io); t.vx -= J*it*nx; t.vy -= J*it*ny; o.vx += J*io*nx; o.vy += J*io*ny; }
-        damageObj(o, 0.5, t);
+        if (o.type !== 'chaser') damageObj(o, 0.5, t); else if (t.cls === 'roller') damageObj(o, 1.5*ramMul(t), t);   // only Rollers grind chasers down by ramming
         // bumping hurts: a little from paint tins, more from prisms, most from paint drums
         if (!t.bump) t.bump = {};
         if (BUMP_DMG[o.type] && (t.bump[o.id] === undefined || G.clock - t.bump[o.id] >= BUMP_CD)){
-          t.bump[o.id] = G.clock; damage(t, BUMP_DMG[o.type]*(t.cls === 'rookie' ? ROOKIE_BUMP : 1), null);
+          t.bump[o.id] = G.clock; damage(t, BUMP_DMG[o.type]*(t.cls === 'rookie' && o.type !== 'chaser' ? ROOKIE_BUMP : 1), null);
+          if (o.type === 'chaser' && t.protect <= 0){ o.rest = CHASER.rest; o.vx += nx*140; o.vy += ny*140; onEvent({k:'bite', x:o.x, y:o.y, id:t.id}); }
           if (t.human && t.protect <= 0) onEvent({k:'ring', x:t.x, y:t.y, r:o.r + t.r, o:0});
         }
       }
@@ -703,12 +734,14 @@ export function createSim(opts){
     updateBullets(dt);
     updateBombs(dt);
     updateObjects(dt);
-    collide();
+    collide(dt);
     G.objects = G.objects.filter(o => !o.dead);
     // refill gradually: one new object every 0.5 s while below the target, faster when the map is emptier
     G.spawnT = (G.spawnT || 0) - dt;
-    const have = G.objects.filter(o => o.type !== 'gold').length;
-    if (have < OBJ_TARGET && G.spawnT <= 0){ spawnObject(randomObjectType(G.objects)); G.spawnT = have < OBJ_TARGET*0.6 ? 0.2 : 0.5; }
+    const have = G.objects.filter(o => o.type !== 'gold' && o.type !== 'chaser').length;
+    if (have < OBJ_TARGET && G.spawnT <= 0){ spawnObject(randomObjectType(G.objects)); G.spawnT = (have < OBJ_TARGET*0.6 ? 0.2 : 0.5)*65/OBJ_TARGET; }   // the bigger map refills proportionally faster
+    G.chaseT = (G.chaseT || 0) - dt;
+    if (G.chaseT <= 0){ G.chaseT = CHASER.respawn; if (G.objects.filter(o => o.type === 'chaser').length < CHASER.count) spawnObject('chaser'); }
     G.goldT -= dt;
     if (G.goldT <= 0){ G.goldT = 60; if (!G.objects.some(o => o.type === 'gold')){ spawnObject('gold', true); onEvent({k:'gold'}); } }
   }
